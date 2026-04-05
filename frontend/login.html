@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — VaultFS</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            --gray-50: #fafafa;
+            --gray-100: #f5f5f7;
+            --gray-200: #e8e8ed;
+            --gray-300: #d2d2d7;
+            --gray-400: #ababab;
+            --gray-500: #86868b;
+            --gray-600: #6e6e73;
+            --gray-700: #424245;
+            --gray-800: #2c2c2e;
+            --gray-900: #1c1c1e;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif;
+            background-color: var(--black);
+            color: var(--white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Subtle radial glow behind the card */
+        body::before {
+            content: "";
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 100vh;
+            padding: 40px 24px;
+        }
+
+        /* ─── Logo ─── */
+        .logo-mark {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 32px;
+            opacity: 0;
+            animation: fadeDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+        }
+
+        .logo-mark svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        /* ─── Heading ─── */
+        .heading {
+            text-align: center;
+            margin-bottom: 40px;
+            opacity: 0;
+            animation: fadeDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+        }
+
+        .heading h1 {
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+            margin-bottom: 10px;
+            color: var(--white);
+        }
+
+        .heading p {
+            font-size: 17px;
+            font-weight: 400;
+            color: var(--gray-500);
+            line-height: 1.5;
+        }
+
+        /* ─── Auth Card ─── */
+        .auth-card {
+            width: 100%;
+            max-width: 400px;
+            opacity: 0;
+            animation: fadeDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
+        }
+
+        /* ─── Buttons ─── */
+        .auth-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            width: 100%;
+            height: 56px;
+            padding: 0 24px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: -0.2px;
+        }
+
+        .auth-btn::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 14px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .btn-google {
+            background: var(--white);
+            color: var(--black);
+            margin-bottom: 14px;
+        }
+
+        .btn-google:hover {
+            background: var(--gray-200);
+            transform: scale(1.015);
+        }
+
+        .btn-google:active {
+            transform: scale(0.985);
+            background: var(--gray-300);
+        }
+
+        .btn-github {
+            background: transparent;
+            color: var(--white);
+            border: 1.5px solid var(--gray-700);
+            margin-bottom: 14px;
+        }
+
+        .btn-github:hover {
+            border-color: var(--gray-500);
+            background: rgba(255, 255, 255, 0.04);
+            transform: scale(1.015);
+        }
+
+        .btn-github:active {
+            transform: scale(0.985);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-icon {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ─── Divider ─── */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--gray-800);
+        }
+
+        .divider span {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ─── Guest Link ─── */
+        .guest-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--gray-500);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            transition: color 0.2s ease;
+            letter-spacing: -0.1px;
+        }
+
+        .guest-link:hover {
+            color: var(--white);
+        }
+
+        /* ─── Input View ─── */
+        .input-view {
+            display: none;
+            width: 100%;
+            max-width: 400px;
+            opacity: 0;
+            animation: fadeDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .input-view.active {
+            display: block;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            font-size: 15px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            padding: 8px 0;
+            margin-bottom: 32px;
+            transition: color 0.2s ease;
+        }
+
+        .back-btn:hover {
+            color: var(--white);
+        }
+
+        .back-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .input-heading {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .input-heading h2 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            margin-bottom: 8px;
+        }
+
+        .input-heading p {
+            font-size: 15px;
+            color: var(--gray-500);
+        }
+
+        .provider-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 100px;
+            background: var(--gray-900);
+            border: 1px solid var(--gray-800);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-400);
+            margin-bottom: 28px;
+        }
+
+        .provider-badge svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .text-input {
+            width: 100%;
+            height: 56px;
+            padding: 0 20px;
+            border-radius: 14px;
+            border: 1.5px solid var(--gray-800);
+            background: var(--gray-900);
+            color: var(--white);
+            font-size: 17px;
+            font-family: inherit;
+            font-weight: 400;
+            outline: none;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+            margin-bottom: 20px;
+        }
+
+        .text-input::placeholder {
+            color: var(--gray-600);
+        }
+
+        .text-input:focus {
+            border-color: var(--gray-500);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04);
+        }
+
+        .submit-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 56px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            background: var(--white);
+            color: var(--black);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            letter-spacing: -0.2px;
+        }
+
+        .submit-btn:hover {
+            background: var(--gray-200);
+            transform: scale(1.015);
+        }
+
+        .submit-btn:active {
+            transform: scale(0.985);
+            background: var(--gray-300);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ─── Loading Overlay ─── */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--black);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--gray-800);
+            border-top-color: var(--white);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-text {
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--gray-500);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ─── Footer ─── */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--gray-700);
+            letter-spacing: 0.2px;
+        }
+
+        .footer a {
+            color: var(--gray-600);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer a:hover {
+            color: var(--gray-400);
+        }
+
+        /* ─── Animations ─── */
+        @keyframes fadeDown {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 480px) {
+            .heading h1 {
+                font-size: 26px;
+            }
+
+            .auth-btn {
+                height: 52px;
+                font-size: 16px;
+            }
+
+            .text-input,
+            .submit-btn {
+                height: 52px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Authenticating...</div>
+    </div>
+
+    <div class="page-wrapper">
+
+        <!-- ─── Main View ─── -->
+        <div id="main-view">
+            <div style="display:flex;flex-direction:column;align-items:center;">
+                <div class="logo-mark">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </div>
+
+                <div class="heading">
+                    <h1>Sign in to VaultFS</h1>
+                    <p>Secure file system for your terminal.</p>
+                </div>
+            </div>
+
+            <div class="auth-card">
+                <button class="auth-btn btn-google" onclick="showInput('Google')">
+                    <span class="btn-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22">
+                            <path fill="#000" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#000" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#000" d="M5.84 14.09A6.98 6.98 0 0 1 5.49 12c0-.72.13-1.43.35-2.09V7.07H2.18A11.01 11.01 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z"/>
+                            <path fill="#000" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                    </span>
+                    Continue with Google
+                </button>
+
+                <button class="auth-btn btn-github" onclick="showInput('GitHub')">
+                    <span class="btn-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22">
+                            <path fill="#fff" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+                        </svg>
+                    </span>
+                    Continue with GitHub
+                </button>
+
+                <div class="divider"><span>or</span></div>
+
+                <button class="guest-link" onclick="guestLogin()">
+                    Continue as Guest
+                </button>
+            </div>
+        </div>
+
+        <!-- ─── Input View ─── -->
+        <div class="input-view" id="input-view">
+            <button class="back-btn" onclick="goBack()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                Back
+            </button>
+
+            <div style="display:flex;flex-direction:column;align-items:center;">
+                <div class="input-heading">
+                    <div class="provider-badge" id="provider-badge">
+                        <span id="provider-icon"></span>
+                        <span id="provider-label"></span>
+                    </div>
+                    <h2>Enter your details</h2>
+                    <p>Provide a name or email to authenticate.</p>
+                </div>
+            </div>
+
+            <input
+                type="text"
+                id="username"
+                class="text-input"
+                placeholder="Name or email address"
+                autocomplete="off"
+                spellcheck="false"
+            />
+
+            <button class="submit-btn" id="submit-btn" onclick="submitLogin()" disabled>
+                Sign In
+            </button>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        VaultFS &middot; Secure File System Simulator
+    </div>
+
+    <script>
+        let selectedProvider = '';
+
+        const mainView    = document.getElementById('main-view');
+        const inputView   = document.getElementById('input-view');
+        const loading     = document.getElementById('loading');
+        const usernameEl  = document.getElementById('username');
+        const submitBtn   = document.getElementById('submit-btn');
+        const badge       = document.getElementById('provider-badge');
+        const badgeIcon   = document.getElementById('provider-icon');
+        const badgeLabel  = document.getElementById('provider-label');
+
+        const googleIcon = '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09A6.98 6.98 0 0 1 5.49 12c0-.72.13-1.43.35-2.09V7.07H2.18A11.01 11.01 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>';
+        const githubIcon = '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>';
+
+        function showInput(provider) {
+            selectedProvider = provider;
+            mainView.style.display = 'none';
+            inputView.classList.add('active');
+
+            badgeIcon.innerHTML = provider === 'Google' ? googleIcon : githubIcon;
+            badgeLabel.textContent = provider;
+
+            usernameEl.value = '';
+            submitBtn.disabled = true;
+
+            setTimeout(() => usernameEl.focus(), 100);
+        }
+
+        function goBack() {
+            inputView.classList.remove('active');
+            mainView.style.display = 'block';
+            mainView.style.opacity = '0';
+            mainView.style.animation = 'none';
+            requestAnimationFrame(() => {
+                mainView.style.animation = '';
+                mainView.style.opacity = '1';
+            });
+        }
+
+        function submitLogin() {
+            const input = usernameEl.value.trim();
+            if (!input) return;
+
+            const name  = input;
+            const email = input.includes('@')
+                ? input
+                : input.toLowerCase().replace(/\s+/g, '') + '@' + selectedProvider.toLowerCase() + '.com';
+            const token = 'auth-' + Math.random().toString(36).substr(2, 9);
+
+            showLoading('Signing in with ' + selectedProvider + '...');
+
+            setTimeout(() => {
+                window.location.href =
+                    '/callback?token=' + encodeURIComponent(token) +
+                    '&email=' + encodeURIComponent(email) +
+                    '&name='  + encodeURIComponent(name);
+            }, 800);
+        }
+
+        function guestLogin() {
+            showLoading('Setting up guest session...');
+
+            setTimeout(() => {
+                window.location.href = '/callback?status=failed';
+            }, 800);
+        }
+
+        function showLoading(message) {
+            loading.querySelector('.loading-text').textContent = message;
+            loading.classList.add('active');
+        }
+
+        // Enable / disable submit button based on input
+        usernameEl.addEventListener('input', () => {
+            submitBtn.disabled = usernameEl.value.trim().length === 0;
+        });
+
+        // Enter key to submit
+        usernameEl.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && usernameEl.value.trim()) {
+                submitLogin();
+            }
+        });
+    </script>
+</body>
+</html>

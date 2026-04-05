@@ -19,6 +19,7 @@ public class AuthManager {
     private static final String TOKEN_DIR = System.getProperty("user.home") + "/.authfs";
     private static final String TOKEN_FILE = TOKEN_DIR + "/token";
     private static final String EMAIL_FILE = TOKEN_DIR + "/email";
+    private static final String NAME_FILE = TOKEN_DIR + "/name";
     private static final String CONFIG_FILE = TOKEN_DIR + "/config";
 
     /** Returns whether a non-empty token file exists. */
@@ -34,6 +35,15 @@ public class AuthManager {
             return "Unknown";
         }
         return email;
+    }
+
+    /** Returns the saved user name or Unknown when not available. */
+    public static String getUserName() {
+        String name = readFile(NAME_FILE);
+        if (name == null || name.isEmpty()) {
+            return "Unknown";
+        }
+        return name;
     }
 
     /** Returns the device ID from config or generates and persists a new UUID. */
@@ -53,7 +63,7 @@ public class AuthManager {
     public static void startLoginFlow() {
         try {
             String sessionToken = UUID.randomUUID().toString();
-            String authURL = "https://vault-fs.web.app/auth?session=" + sessionToken;
+            String authURL = "http://localhost:9000/login?session=" + sessionToken;
 
             System.out.println(Colors.c(Colors.WHITE, "Opening browser for authentication..."));
             System.out.println(Colors.c(Colors.GRAY, "→ " + authURL));
@@ -70,6 +80,25 @@ public class AuthManager {
             System.out.println(Colors.c(Colors.GRAY, "Waiting for authentication... (timeout: 120s)"));
 
             final HttpServer server = HttpServer.create(new InetSocketAddress(9000), 0);
+            
+            server.createContext("/login", new HttpHandler() {
+                @Override
+                public void handle(HttpExchange exchange) throws IOException {
+                    File file = new File(System.getProperty("user.dir") + "/frontend/login.html");
+                    String response = "";
+                    if (file.exists()) {
+                        response = readFile(file.getAbsolutePath());
+                    } else {
+                        response = "<html><body><h1>Error: login.html not found</h1></body></html>";
+                    }
+                    exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                    exchange.sendResponseHeaders(200, response.getBytes("UTF-8").length);
+                    OutputStream os = exchange.getResponseBody();
+                    os.write(response.getBytes("UTF-8"));
+                    os.close();
+                }
+            });
+
             server.createContext("/callback", new HttpHandler() {
                 /** Handles auth callback, persists credentials, and completes login flow. */
                 @Override
@@ -77,6 +106,8 @@ public class AuthManager {
                     String query = exchange.getRequestURI().getQuery();
                     String token = "";
                     String email = "Unknown";
+                    String name = "Guest";
+                    boolean failed = false;
 
                     if (query != null && !query.isEmpty()) {
                         String[] parts = query.split("&");
@@ -89,22 +120,40 @@ public class AuthManager {
                                     token = value;
                                 } else if ("email".equals(key)) {
                                     email = value;
+                                } else if ("name".equals(key)) {
+                                    name = value;
+                                } else if ("status".equals(key) && "failed".equals(value)) {
+                                    failed = true;
                                 }
                             }
                         }
                     }
 
+                    if (failed) {
+                        token = "guest-token";
+                        email = "guest@local";
+                        name = "Guest";
+                    }
+
                     new File(TOKEN_DIR).mkdirs();
                     writeFile(TOKEN_FILE, token);
                     writeFile(EMAIL_FILE, email);
+                    writeFile(NAME_FILE, name);
 
-                    String response = "Authentication successful! You can close this tab.";
-                    exchange.sendResponseHeaders(200, response.getBytes().length);
+                    File successPage = new File(System.getProperty("user.dir") + "/frontend/success.html");
+                    String response;
+                    if (successPage.exists()) {
+                        response = readFile(successPage.getAbsolutePath());
+                    } else {
+                        response = "<html><body><h1>Authentication successful!</h1><p>You can close this tab.</p></body></html>";
+                    }
+                    exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                    exchange.sendResponseHeaders(200, response.getBytes("UTF-8").length);
                     OutputStream os = exchange.getResponseBody();
-                    os.write(response.getBytes());
+                    os.write(response.getBytes("UTF-8"));
                     os.close();
 
-                    System.out.println(Colors.c(Colors.GREEN, "✓") + " Logged in as " + Colors.c(Colors.YELLOW, email));
+                    System.out.println(Colors.c(Colors.GREEN, "✓") + " Logged in as " + Colors.c(Colors.YELLOW, name) + " (" + email + ")");
                     server.stop(0);
                 }
             });
@@ -131,6 +180,7 @@ public class AuthManager {
     public static void logout() {
         new File(TOKEN_FILE).delete();
         new File(EMAIL_FILE).delete();
+        new File(NAME_FILE).delete();
         System.out.println(Colors.c(Colors.GREEN, "✓") + " Logged out successfully");
     }
 

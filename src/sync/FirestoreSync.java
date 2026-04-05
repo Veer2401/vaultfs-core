@@ -34,7 +34,6 @@ public class FirestoreSync {
                     + device;
 
             String accessToken = getAccessToken();
-            System.out.println("[debug] accessToken: " + (accessToken != null ? "OK length=" + accessToken.length() : "null"));
             if (accessToken == null) {
                 System.out.println(Colors.c(Colors.RED, "[sync] Auth failed — skipping push"));
                 return;
@@ -62,13 +61,11 @@ public class FirestoreSync {
             }
 
             int responseCode = conn.getResponseCode();
-            System.out.println("[debug] Firestore response code: " + responseCode);
             if (responseCode != 200) {
                 System.out.println(Colors.c(Colors.RED, "[sync] Push failed: " + responseCode));
             }
         } catch (Exception e) {
-            System.out.println("[debug] push exception: " + e.getClass().getName() + ": " + e.getMessage());
-            e.printStackTrace();
+            System.out.println(Colors.c(Colors.RED, "[sync] Push error: " + e.getMessage()));
         }
     }
 
@@ -84,9 +81,7 @@ public class FirestoreSync {
             }
 
             String json = jsonBuilder.toString();
-            System.out.println("[debug] serviceAccount.json read: " + (json != null && json.length() > 10 ? "OK" : "FAILED"));
             String clientEmail = extractJsonField(json, "client_email");
-            System.out.println("[debug] client_email: " + clientEmail);
             String privateKey = extractJsonField(json, "private_key");
             if (clientEmail == null || privateKey == null) {
                 return null;
@@ -98,7 +93,6 @@ public class FirestoreSync {
                     .replace("\\n", "")
                     .replace("\n", "")
                     .trim();
-                    System.out.println("[debug] private_key length: " + (privateKey != null ? privateKey.length() : "null"));
 
             long now = System.currentTimeMillis() / 1000;
             long exp = now + 3600;
@@ -117,7 +111,6 @@ public class FirestoreSync {
             String signingInput = encodedHeader + "." + encodedPayload;
             String signature = signRsa(signingInput, privateKey);
             String jwt = signingInput + "." + signature;
-            System.out.println("[debug] JWT built: " + (jwt != null ? jwt.substring(0, 20) + "..." : "null"));
 
             HttpURLConnection conn = (HttpURLConnection) new URL("https://oauth2.googleapis.com/token").openConnection();
             conn.setRequestMethod("POST");
@@ -151,7 +144,6 @@ public class FirestoreSync {
             }
 
             String responseBody = response.toString();
-            System.out.println("[debug] token response: " + responseBody.substring(0, Math.min(100, responseBody.length())));
             return extractJsonField(responseBody, "access_token");
         } catch (Exception e) {
             return null;
