@@ -18,8 +18,10 @@ out/
 .tmp-home-test/
 auth-ui/
 
-# OAuth secrets
-oauth.properties
+# Environment variables
+.env
+.env.*
+!.env.example
 
 # Frontend
 frontend/node_modules/

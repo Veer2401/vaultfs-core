@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 import sync.FirestoreSync;
 import utils.Colors;
 
@@ -24,16 +25,20 @@ import utils.Colors;
 public class FileSystem {
     private datastructures.DirectoryTree tree;
     private datastructures.FileHeap globalHeap;
+    private datastructures.DiskSimulator diskSimulator;
     public models.FileNode currentDirectory;
     private utils.JsonExporter exporter;
+    private Stack<String> historyStack;
 
     /** Initializes the tree from the current working directory and syncs from disk. */
     public FileSystem() {
         String startPath = new File(System.getProperty("user.dir")).getAbsolutePath();
         this.tree = new datastructures.DirectoryTree(startPath);
         this.globalHeap = new datastructures.FileHeap();
+        this.diskSimulator = new datastructures.DiskSimulator();
         this.currentDirectory = this.tree.getRoot();
         this.exporter = new utils.JsonExporter(System.getProperty("user.dir") + File.separator + "state.json");
+        this.historyStack = new Stack<>();
         syncDirectoryFromDisk(this.currentDirectory, false);
         rebuildGlobalHeapFromRoot();
         exportState();
@@ -52,6 +57,26 @@ public class FileSystem {
 
     /** Changes current directory using relative or absolute paths from disk. */
     public void cd(String path) {
+        if ("-".equals(path)) {
+            if (historyStack.isEmpty()) {
+                System.out.println(Colors.c(Colors.RED, "No previous directory in history."));
+                exportState();
+                return;
+            }
+            String prevPath = historyStack.pop();
+            File targetDir = resolveDirectory(prevPath);
+            if (targetDir != null) {
+                models.FileNode resolved = ensureNodeForDirectory(targetDir);
+                if (resolved != null) {
+                    currentDirectory = resolved;
+                    syncDirectoryFromDisk(currentDirectory, false);
+                    rebuildGlobalHeapFromRoot();
+                }
+            }
+            exportState();
+            return;
+        }
+
         File targetDir = resolveDirectory(path);
         if (targetDir == null) {
             System.out.println(Colors.c(Colors.RED, "Directory not found: " + path));
@@ -65,6 +90,9 @@ public class FileSystem {
             exportState();
             return;
         }
+
+        // Push current directory to history stack before changing
+        historyStack.push(currentDirectory.absolutePath);
 
         currentDirectory = resolved;
         syncDirectoryFromDisk(currentDirectory, false);
@@ -103,7 +131,7 @@ public class FileSystem {
         }
 
         tree.insertDirectory(currentDirectory, name, absolutePath);
-    syncDirectoryFromDisk(currentDirectory, false);
+        syncDirectoryFromDisk(currentDirectory, false);
     rebuildGlobalHeapFromRoot();
         System.out.println("Directory '" + Colors.c(Colors.BLUE, name) + "' "
                 + Colors.c(Colors.GREEN, "created successfully") + ".");
@@ -266,9 +294,14 @@ public class FileSystem {
         currentDirectory.files.add(m);
         currentDirectory.fileIndex.put(filename, m);
         globalHeap.insert(filename, filePath, m.sizeBytes);
+        
         System.out.println("File '" + Colors.c(Colors.WHITE, filename) + "' "
             + Colors.c(Colors.GREEN, "created successfully")
             + " with size " + Colors.c(Colors.CYAN, m.formattedSize()) + ".");
+        if (m.startBlockId != -1) {
+            System.out.println(Colors.c(Colors.GRAY, "Allocated blocks: " + diskSimulator.getBlockChain(m.startBlockId).size() 
+                + " (Start: " + m.startBlockId + ")"));
+        }
         exportState();
     }
 
@@ -280,6 +313,11 @@ public class FileSystem {
             System.out.println(Colors.c(Colors.RED, "File not found: " + filename));
             exportState();
             return;
+        }
+
+        models.FileMetadata meta = currentDirectory.fileIndex.get(filename);
+        if (meta != null && meta.startBlockId != -1) {
+            diskSimulator.freeFile(meta.startBlockId);
         }
 
         String filePath = currentDirectory.absolutePath + File.separator + filename;
@@ -367,43 +405,62 @@ public class FileSystem {
         exportState();
     }
 
-    /** Lists subdirectories first and then files in simple or detailed mode. */
-    public void ls(boolean detailed) {
+    /** Lists files and directories in current folder, optionally sorting them or showing details. */
+    public void ls(boolean detailed, String sortFlag) {
         syncDirectoryFromDisk(currentDirectory, false);
 
-        boolean hasDirectories = currentDirectory.children != null && !currentDirectory.children.isEmpty();
-        ArrayList<models.FileMetadata> files = currentDirectory.files.getAll();
-        boolean hasFiles = !files.isEmpty();
+        int childCount = currentDirectory.children.size();
+        int fileCount = currentDirectory.files != null ? currentDirectory.files.getAll().size() : 0;
 
-        if (!hasDirectories && !hasFiles) {
-            System.out.println(Colors.c(Colors.RED, "(empty directory)"));
+        if (childCount == 0 && fileCount == 0) {
+            System.out.println(Colors.c(Colors.GRAY, "Directory is empty"));
             exportState();
             return;
         }
 
-        if (hasDirectories) {
-            for (models.FileNode child : currentDirectory.children) {
-                System.out.println(Colors.c(Colors.BLUE + Colors.BOLD, child.name + "/"));
-            }
+        List<models.FileNode> dirs = new ArrayList<>(currentDirectory.children);
+        List<models.FileMetadata> files = new ArrayList<>(currentDirectory.files.getAll());
+
+        // Sort if flag is provided
+        if ("-name".equals(sortFlag)) {
+            dirs.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
+            files.sort((a, b) -> a.filename.compareToIgnoreCase(b.filename));
+        } else if ("-size".equals(sortFlag)) {
+            // Directories don't have a direct size property in this model, so we sort files only
+            files.sort((a, b) -> Long.compare(b.sizeBytes, a.sizeBytes)); // Descending
+        } else if ("-date".equals(sortFlag)) {
+            files.sort((a, b) -> b.modifiedAt.compareTo(a.modifiedAt)); // Newest first
         }
 
-        if (hasFiles) {
-            if (detailed) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                System.out.println(Colors.c(Colors.GRAY, "NAME                         SIZE       TYPE     MODIFIED"));
-                for (models.FileMetadata m : files) {
-                    String sizeStr = Colors.c(Colors.CYAN, String.format("%-10s", m.formattedSize()));
-                    String row = String.format("%-28s %s %-8s %s",
-                            m.filename,
-                            sizeStr,
-                            m.type,
-                            m.modifiedAt.format(formatter));
-                    System.out.println(row);
-                }
-            } else {
-                for (models.FileMetadata m : files) {
-                    System.out.println(Colors.c(Colors.WHITE, m.filename));
-                }
+        if (detailed) {
+            System.out.println(String.format("%-28s %-11s %-9s %s",
+                    Colors.c(Colors.WHITE + Colors.BOLD, "NAME"),
+                    Colors.c(Colors.WHITE + Colors.BOLD, "SIZE"),
+                    Colors.c(Colors.WHITE + Colors.BOLD, "TYPE"),
+                    Colors.c(Colors.WHITE + Colors.BOLD, "MODIFIED")));
+
+            for (models.FileNode child : dirs) {
+                System.out.println(String.format("%-37s %-20s %-18s %s",
+                        Colors.c(Colors.BLUE + Colors.BOLD, child.name + "/"),
+                        Colors.c(Colors.GRAY, "--"),
+                        Colors.c(Colors.GRAY, "dir"),
+                        Colors.c(Colors.GRAY, "--")));
+            }
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            for (models.FileMetadata m : files) {
+                System.out.println(String.format("%-37s %-20s %-18s %s",
+                        Colors.c(Colors.WHITE, m.filename),
+                        Colors.c(Colors.CYAN, m.formattedSize()),
+                        Colors.c(Colors.GRAY, m.type),
+                        Colors.c(Colors.GRAY, m.modifiedAt.format(formatter))));
+            }
+        } else {
+            for (models.FileNode child : dirs) {
+                System.out.println(Colors.c(Colors.BLUE + Colors.BOLD, child.name + "/"));
+            }
+            for (models.FileMetadata m : files) {
+                System.out.println(Colors.c(Colors.WHITE, m.filename));
             }
         }
         exportState();
@@ -431,21 +488,24 @@ public class FileSystem {
         System.out.println(Colors.c(Colors.GRAY, "Type: ") + Colors.c(Colors.WHITE, m.type));
         System.out.println(Colors.c(Colors.GRAY, "CreatedAt: ") + Colors.c(Colors.WHITE, String.valueOf(m.createdAt)));
         System.out.println(Colors.c(Colors.GRAY, "ModifiedAt: ") + Colors.c(Colors.WHITE, String.valueOf(m.modifiedAt)));
+        if (m.startBlockId != -1) {
+            System.out.println(Colors.c(Colors.GRAY, "Disk Blocks: ") + Colors.c(Colors.WHITE, diskSimulator.getBlockChain(m.startBlockId).size() + " allocated"));
+            System.out.println(Colors.c(Colors.GRAY, "Start Block ID: ") + Colors.c(Colors.WHITE, String.valueOf(m.startBlockId)));
+        }
         exportState();
     }
 
-    /** Finds all matching filenames in the tree and prints absolute file paths. */
+    /** Finds all matching filenames in the tree using the O(log n) BST search. */
     public void find(String filename) {
         syncDirectoryFromDisk(currentDirectory, true);
 
-        List<String> results = new ArrayList<>();
-        findHelper(currentDirectory, filename, results);
+        List<String> results = tree.getGlobalSearchBst().search(filename);
 
         if (results.isEmpty()) {
             System.out.println(Colors.c(Colors.RED, "No file named '" + filename + "' found"));
         } else {
             for (String path : results) {
-                System.out.println(Colors.c(Colors.CYAN, path));
+                System.out.println(Colors.c(Colors.CYAN, "Found: " + path));
             }
         }
         exportState();
@@ -692,6 +752,9 @@ public class FileSystem {
         models.FileMetadata metadata = new models.FileMetadata(file.getName(), file.length());
         LocalDateTime modified = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());
         metadata.modifiedAt = modified;
+        if (metadata.startBlockId == -1) {
+            metadata.startBlockId = diskSimulator.allocateFile(metadata.sizeBytes);
+        }
         return metadata;
     }
 
@@ -798,6 +861,51 @@ public class FileSystem {
             return String.format("%.1f KB", sizeBytes / 1024.0);
         }
         return String.format("%.1f MB", sizeBytes / 1_048_576.0);
+    }
+
+    /** Creates a symbolic link (shortcut) to another directory and checks for cycles. */
+    public void createSymlink(String targetPath, String linkName) {
+        if (!isSimpleName(linkName)) {
+            System.out.println(Colors.c(Colors.RED, "Invalid symlink name: " + linkName));
+            exportState();
+            return;
+        }
+
+        File targetDir = resolveDirectory(targetPath);
+        if (targetDir == null || !targetDir.exists()) {
+            System.out.println(Colors.c(Colors.RED, "Target directory not found: " + targetPath));
+            exportState();
+            return;
+        }
+
+        // Feature 4: Cycle Detection using HashSet
+        HashSet<String> visited = new HashSet<>();
+        visited.add(normalizePath(targetDir.getAbsolutePath()));
+        
+        models.FileNode walker = currentDirectory;
+        while (walker != null) {
+            if (visited.contains(normalizePath(walker.absolutePath))) {
+                System.out.println(Colors.c(Colors.RED, "Error: Creating this symlink would cause a circular reference cycle."));
+                exportState();
+                return;
+            }
+            walker = walker.parent;
+        }
+
+        try {
+            java.nio.file.Path link = Paths.get(currentDirectory.absolutePath, linkName);
+            java.nio.file.Files.createSymbolicLink(link, targetDir.toPath());
+            
+            // Register it in the tree
+            tree.insertDirectory(currentDirectory, linkName, normalizePath(link.toString()));
+            syncDirectoryFromDisk(currentDirectory, false);
+            
+            System.out.println("Symlink '" + Colors.c(Colors.BLUE, linkName) + "' "
+                + Colors.c(Colors.GREEN, "created successfully") + " -> " + targetPath);
+        } catch (IOException e) {
+            System.out.println(Colors.c(Colors.RED, "Failed to create symlink: " + e.getMessage()));
+        }
+        exportState();
     }
 
     /** Exports the current root, active directory, and global heap state to state.json. */

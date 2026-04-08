@@ -1,36 +1,24 @@
 package auth;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
+import utils.EnvParser;
 
-/** Reads OAuth client credentials from oauth.properties in the project root. */
+/** Reads OAuth client credentials from .env in the project root. */
 public class OAuthConfig {
-    private static final Properties props = new Properties();
-
-    static {
-        try (FileInputStream fis = new FileInputStream(
-                System.getProperty("user.dir") + "/oauth.properties")) {
-            props.load(fis);
-        } catch (IOException e) {
-            // Config not found — OAuth will be unavailable
-        }
-    }
 
     public static String googleClientId() {
-        return props.getProperty("google.client.id", "").trim();
+        return EnvParser.get("GOOGLE_CLIENT_ID", "");
     }
 
     public static String googleClientSecret() {
-        return props.getProperty("google.client.secret", "").trim();
+        return EnvParser.get("GOOGLE_CLIENT_SECRET", "");
     }
 
     public static String githubClientId() {
-        return props.getProperty("github.client.id", "").trim();
+        return EnvParser.get("GITHUB_CLIENT_ID", "");
     }
 
     public static String githubClientSecret() {
-        return props.getProperty("github.client.secret", "").trim();
+        return EnvParser.get("GITHUB_CLIENT_SECRET", "");
     }
 
     public static boolean isGoogleConfigured() {

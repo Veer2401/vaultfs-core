@@ -21,15 +21,29 @@ public class Main {
 
         filesystem.FileSystem fs = new filesystem.FileSystem();
         Scanner scanner = new Scanner(System.in);
+        java.util.Queue<String> commandBuffer = new java.util.LinkedList<>();
 
         while (true) {
-            System.out.print(Colors.c(Colors.GREEN + Colors.BOLD, fs.currentDirectory.absolutePath + "> "));
-            String line = scanner.nextLine();
-            if (line == null || line.trim().isEmpty()) {
-                continue;
+            if (commandBuffer.isEmpty()) {
+                System.out.print(Colors.c(Colors.GREEN + Colors.BOLD, fs.currentDirectory.absolutePath + "> "));
+                String line = scanner.nextLine();
+                if (line == null || line.trim().isEmpty()) {
+                    continue;
+                }
+                
+                // Parse multiple commands separated by ';'
+                String[] cmds = line.split(";");
+                for (String cmd : cmds) {
+                    if (!cmd.trim().isEmpty()) {
+                        commandBuffer.offer(cmd.trim());
+                    }
+                }
             }
 
-            String[] tokens = line.trim().split("\\s+");
+            if (commandBuffer.isEmpty()) continue;
+
+            String currentCmd = commandBuffer.poll();
+            String[] tokens = currentCmd.split("\\s+");
             String command = tokens[0];
             try {
                 if ("pwd".equals(command)) {
@@ -64,14 +78,22 @@ public class Main {
                     fs.searchByType(tokens[2]);
                 } else if ("search".equals(command)) {
                     fs.find(tokens[1]);
-                } else if ("ls".equals(command) && tokens.length > 1 && "-l".equals(tokens[1])) {
-                    fs.ls(true);
                 } else if ("ls".equals(command)) {
-                    fs.ls(false);
+                    boolean detailed = false;
+                    String sortFlag = null;
+                    for (int i = 1; i < tokens.length; i++) {
+                        if ("-l".equals(tokens[i])) detailed = true;
+                        else if ("-name".equals(tokens[i]) || "-size".equals(tokens[i]) || "-date".equals(tokens[i])) {
+                            sortFlag = tokens[i];
+                        }
+                    }
+                    fs.ls(detailed, sortFlag);
                 } else if ("tree".equals(command) && tokens.length > 1) {
                     fs.tree(tokens[1]);
                 } else if ("tree".equals(command)) {
                     System.out.println(Colors.c(Colors.RED, "Path is required. Usage: tree <path>"));
+                } else if ("ln".equals(command) && tokens.length > 3 && "-s".equals(tokens[1])) {
+                    fs.createSymlink(tokens[2], tokens[3]);
                 } else if ("topk".equals(command) && tokens.length > 2) {
                     fs.topK(Integer.parseInt(tokens[1]), tokens[2]);
                 } else if ("topk".equals(command)) {

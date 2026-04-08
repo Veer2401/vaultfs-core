@@ -361,65 +361,51 @@ public class AuthManager {
 
 
     /** Prints formatted account details when logged in. */
-
     public static void whoami() {
-
         if (!isLoggedIn()) {
-
             System.out.println(Colors.c(Colors.RED, "Not logged in."));
-
             return;
-
         }
 
-
-
         String email = getUserEmail();
-
         String deviceId = getDeviceId();
-
-
-
-        String borderTop = "┌─────────────────────────────────────┐";
-
-        String borderMid = "├─────────────────────────────────────┤";
-
-        String borderBottom = "└─────────────────────────────────────┘";
-
-
+        
+        int emailLen = email.length();
+        int deviceIdLen = deviceId.length();
+        int maxLen = Math.max(emailLen, deviceIdLen);
+        int boxWidth = Math.max(37, maxLen + 18); // 18 is for "Email     : " and padding
+        
+        String borderTop = "┌" + "─".repeat(boxWidth) + "┐";
+        String borderMid = "├" + "─".repeat(boxWidth) + "┤";
+        String borderBottom = "└" + "─".repeat(boxWidth) + "┘";
 
         System.out.println(Colors.c(Colors.GRAY, borderTop));
-
-        System.out.println(Colors.c(Colors.GRAY, "│") + "         Account Details             " + Colors.c(Colors.GRAY, "│"));
-
+        
+        int titlePadLeft = (boxWidth - 15) / 2;
+        int titlePadRight = boxWidth - 15 - titlePadLeft;
+        System.out.println(Colors.c(Colors.GRAY, "│") + " ".repeat(titlePadLeft) + "Account Details" + " ".repeat(titlePadRight) + Colors.c(Colors.GRAY, "│"));
+        
         System.out.println(Colors.c(Colors.GRAY, borderMid));
-
+        
+        int emailPad = boxWidth - 15 - emailLen;
         System.out.println(Colors.c(Colors.GRAY, "│") + " "
-
                 + Colors.c(Colors.GRAY, "Email") + "     : "
-
                 + Colors.c(Colors.YELLOW, email)
-
-                + "          " + Colors.c(Colors.GRAY, "│"));
-
+                + " ".repeat(Math.max(0, emailPad)) + Colors.c(Colors.GRAY, "│"));
+                
+        int devicePad = boxWidth - 15 - deviceIdLen;
         System.out.println(Colors.c(Colors.GRAY, "│") + " "
-
                 + Colors.c(Colors.GRAY, "Device ID") + " : "
-
                 + Colors.c(Colors.CYAN, deviceId)
-
-                + "             " + Colors.c(Colors.GRAY, "│"));
-
+                + " ".repeat(Math.max(0, devicePad)) + Colors.c(Colors.GRAY, "│"));
+                
+        int statusPad = boxWidth - 15 - 8; // 8 for "● Online"
         System.out.println(Colors.c(Colors.GRAY, "│") + " "
-
                 + Colors.c(Colors.GRAY, "Status") + "    : "
-
                 + Colors.c(Colors.GREEN, "● Online")
-
-                + "                " + Colors.c(Colors.GRAY, "│"));
-
+                + " ".repeat(Math.max(0, statusPad)) + Colors.c(Colors.GRAY, "│"));
+                
         System.out.println(Colors.c(Colors.GRAY, borderBottom));
-
     }
 
 

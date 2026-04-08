@@ -28,32 +28,100 @@ Built as a DSA mini project demonstrating real-world applications of data struct
 
 <br/>
 
-## 📁 Project Structure
+### 3. Build the Frontend
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+### 4. Compile & Run the Java CLI
+```bash
+# Compile
+javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/auth/*.java src/sync/*.java src/filesystem/*.java src/Main.java
+
+# Run
+java -cp out Main
+```
+
+---
+
+## Available Commands
+
+### Navigation & Creation
+*   `pwd` - Print working directory
+*   `ls [-size|-name|-date]` - List directory contents (supports sorting)
+*   `cd <dir>` - Change directory
+*   `cd -` - Go back to previous directory (Stack history)
+*   `mkdir <name>` - Create directory
+*   `touch <name> [content]` - Create file
+*   `ln -s <target> <link_name>` - Create a symlink (shortcut)
+
+### File Operations
+*   `cat <name>` - Read file contents
+*   `rm <name>` - Remove file or directory
+*   `find <name>` - Fast global file search (Uses BST)
+*   `mv <source> <dest>` - Move or rename
+
+### Authentication & Sync
+*   `whoami` - Show logged-in user details
+*   `logout` - Clear local auth tokens
+*   `sync` - Sync state.json to Firebase (if configured)
+
+### System
+*   `clear` - Clear console output
+*   `exit` - Save state and exit simulator
+
+---
+
+## Technical Details
+
+The file system is represented as a traditional n-ary tree where each node is a `FileNode` or `DirectoryNode`. The root directory `/` is initialized on startup.
+*   **Directory Lookups:** Backed by a global `HashMap<String, DirectoryNode>` for $O(1)$ absolute path resolution.
+*   **Search:** Handled by an auxiliary Binary Search Tree maintaining all file names for $O(\log n)$ lookups.
+*   **File Storage:** Simulated using an array of disk blocks and a LinkedList mapping the blocks for each file.
+
+---
+
+## Project Structure
 
 ```
 file-system-simulator/
 ├── src/
 │   ├── models/
-│   │   ├── FileMetadata.java       # File metadata (name, size, type, timestamps)
-│   │   └── FileNode.java           # Directory node in the tree
+│   │   ├── FileMetadata.java     # File metadata (name, size, type, timestamps)
+│   │   └── FileNode.java         # Directory node in the tree
 │   ├── datastructures/
-│   │   ├── DirectoryTree.java      # N-ary tree for directory hierarchy
-│   │   ├── FileLinkedList.java     # Custom singly LinkedList for files
-│   │   ├── FileHashMap.java        # Custom HashMap with separate chaining
-│   │   └── FileHeap.java           # Custom MaxHeap for top-k queries
+│   │   ├── DirectoryTree.java    # N-ary tree for directory hierarchy
+│   │   ├── FileLinkedList.java   # Custom singly LinkedList for files
+│   │   ├── FileHashMap.java      # Custom HashMap with separate chaining
+│   │   └── FileHeap.java         # Custom MaxHeap for top-k queries
+│   ├── auth/
+│   │   ├── OAuth.java            # OAuth 2.0 authentication flow
+│   │   └── AuthServer.java       # Embedded HTTP server for OAuth
+│   ├── sync/
+│   │   └── FirebaseSync.java     # Sync state.json to Firebase
 │   ├── filesystem/
-│   │   └── FileSystem.java         # Core engine — wires all DS + disk ops
+│   │   └── FileSystem.java       # Core engine — wires all DS + disk ops
 │   ├── utils/
-│   │   └── JsonExporter.java       # Serializes state to state.json
-│   └── Main.java                   # CLI entry point
-├── PLAN.md                         # Architecture and design decisions
-├── EXECUTION_PLAN.md               # Phase-wise build plan
+│   │   └── JsonExporter.java     # Serializes state to state.json
+│   └── Main.java                 # CLI entry point
+├── frontend/
+│   ├── public/
+│   │   └── index.html            # React frontend entry point
+│   ├── src/
+│   │   ├── App.js                # React app component
+│   │   └── index.js              # React app entry point
+│   └── package.json              # React app dependencies
+├── PLAN.md                       # Architecture and design decisions
+├── EXECUTION_PLAN.md             # Phase-wise build plan
 └── .gitignore
 ```
 
-<br/>
+---
 
-## ⚙️ Build & Run
+## Build & Run
 
 **Requirements:** Java 11+
 
@@ -63,15 +131,15 @@ git clone https://github.com/pranavdadhe1806/file-system-simulator.git
 cd file-system-simulator
 
 # Compile
-javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/filesystem/*.java src/Main.java
+javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/auth/*.java src/sync/*.java src/filesystem/*.java src/Main.java
 
 # Run
 java -cp out Main
 ```
 
-<br/>
+---
 
-## 💻 Commands
+## Commands
 
 ### Navigation
 | Command | Example | Description |
