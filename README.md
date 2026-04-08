@@ -1,32 +1,30 @@
-# 🗂️ File System Directory Simulator
+# VaultFS — Secure File System Simulator
 
-> A CLI-based file system simulator written in **Core Java** — using custom implementations of Tree, LinkedList, HashMap, and MaxHeap — that also mirrors every operation on your **real disk** inside a safe sandbox folder.
+A CLI-based file system simulator built entirely in **Core Java** with real **OAuth 2.0 authentication** (Google & GitHub), a built-in **React login frontend**, and advanced **data structure implementations** — Stack, Queue, BST, HashMap, LinkedList, Graphs, and Sorting.
 
-<br/>
+---
 
-## 📌 What is this?
+## Quick Start
 
-This project simulates how operating systems manage files and directories using fundamental data structures. Every command you type:
-1. Updates the **in-memory data structures** (Tree, LinkedList, HashMap, Heap)
-2. Makes **real changes on disk** inside a `sandbox/` folder
-3. Exports the current state to `state.json` for frontend visualization
+### Prerequisites
+- **Java 11+**
+- **Node.js** (only needed once, to build the frontend)
 
-Built as a DSA mini project demonstrating real-world applications of data structures.
+### 1. Clone the Repository
+```bash
+git clone https://github.com/ThreatGuardian/vaultfs-core.git
+cd vaultfs-core
+```
 
-<br/>
+### 2. Set Up Environment Variables
+The project uses a `.env` file for OAuth credentials. **This file is gitignored for security.**
 
-## 🧱 Data Structures Used
+```bash
+# Copy the example template
+cp .env.example .env
+```
 
-| Data Structure | Role |
-|---|---|
-| **Tree** (N-ary) | Models directory hierarchy — root → folders → subfolders |
-| **LinkedList** (custom) | Stores files inside each directory in insertion order |
-| **HashMap** (custom) | Maps filename → metadata for O(1) lookup per directory |
-| **MaxHeap** (custom) | Finds top-k largest files efficiently across the entire tree |
-
-> All four are implemented **from scratch** — no `java.util.LinkedList`, `java.util.HashMap`, or `java.util.PriorityQueue` used.
-
-<br/>
+> **Without a `.env` file, the app still runs perfectly** — you'll just log in as a Guest. OAuth (Google/GitHub) login requires valid credentials in `.env`.
 
 ### 3. Build the Frontend
 ```bash
@@ -36,7 +34,7 @@ npm run build
 cd ..
 ```
 
-### 4. Compile & Run the Java CLI
+### 4. Compile & Run
 ```bash
 # Compile
 javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/auth/*.java src/sync/*.java src/filesystem/*.java src/Main.java
@@ -45,257 +43,162 @@ javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/au
 java -cp out Main
 ```
 
----
-
-## Available Commands
-
-### Navigation & Creation
-*   `pwd` - Print working directory
-*   `ls [-size|-name|-date]` - List directory contents (supports sorting)
-*   `cd <dir>` - Change directory
-*   `cd -` - Go back to previous directory (Stack history)
-*   `mkdir <name>` - Create directory
-*   `touch <name> [content]` - Create file
-*   `ln -s <target> <link_name>` - Create a symlink (shortcut)
-
-### File Operations
-*   `cat <name>` - Read file contents
-*   `rm <name>` - Remove file or directory
-*   `find <name>` - Fast global file search (Uses BST)
-*   `mv <source> <dest>` - Move or rename
-
-### Authentication & Sync
-*   `whoami` - Show logged-in user details
-*   `logout` - Clear local auth tokens
-*   `sync` - Sync state.json to Firebase (if configured)
-
-### System
-*   `clear` - Clear console output
-*   `exit` - Save state and exit simulator
+The app will open a browser for login. Choose **Google**, **GitHub**, or **Continue as Guest**.
 
 ---
 
-## Technical Details
+## Setting Up OAuth (Optional)
 
-The file system is represented as a traditional n-ary tree where each node is a `FileNode` or `DirectoryNode`. The root directory `/` is initialized on startup.
-*   **Directory Lookups:** Backed by a global `HashMap<String, DirectoryNode>` for $O(1)$ absolute path resolution.
-*   **Search:** Handled by an auxiliary Binary Search Tree maintaining all file names for $O(\log n)$ lookups.
-*   **File Storage:** Simulated using an array of disk blocks and a LinkedList mapping the blocks for each file.
+If you want Google/GitHub login instead of Guest mode, follow these steps.
 
----
+### Google OAuth Setup
 
-## Project Structure
+1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Click **Create Credentials** → **OAuth client ID**
+3. Select **Web application** as the type
+4. Under **Authorized redirect URIs**, add:
+   ```
+   http://localhost:9000/callback/google
+   ```
+5. Click **Create** and copy the **Client ID** and **Client Secret**
+6. Paste them into your `.env` file:
+   ```env
+   GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-client-secret-here
+   ```
 
-```
-file-system-simulator/
-├── src/
-│   ├── models/
-│   │   ├── FileMetadata.java     # File metadata (name, size, type, timestamps)
-│   │   └── FileNode.java         # Directory node in the tree
-│   ├── datastructures/
-│   │   ├── DirectoryTree.java    # N-ary tree for directory hierarchy
-│   │   ├── FileLinkedList.java   # Custom singly LinkedList for files
-│   │   ├── FileHashMap.java      # Custom HashMap with separate chaining
-│   │   └── FileHeap.java         # Custom MaxHeap for top-k queries
-│   ├── auth/
-│   │   ├── OAuth.java            # OAuth 2.0 authentication flow
-│   │   └── AuthServer.java       # Embedded HTTP server for OAuth
-│   ├── sync/
-│   │   └── FirebaseSync.java     # Sync state.json to Firebase
-│   ├── filesystem/
-│   │   └── FileSystem.java       # Core engine — wires all DS + disk ops
-│   ├── utils/
-│   │   └── JsonExporter.java     # Serializes state to state.json
-│   └── Main.java                 # CLI entry point
-├── frontend/
-│   ├── public/
-│   │   └── index.html            # React frontend entry point
-│   ├── src/
-│   │   ├── App.js                # React app component
-│   │   └── index.js              # React app entry point
-│   └── package.json              # React app dependencies
-├── PLAN.md                       # Architecture and design decisions
-├── EXECUTION_PLAN.md             # Phase-wise build plan
-└── .gitignore
-```
+### GitHub OAuth Setup
+
+1. Go to [GitHub → Developer Settings → OAuth Apps](https://github.com/settings/developers)
+2. Click **New OAuth App**
+3. Fill in:
+   - **Application name:** `VaultFS`
+   - **Homepage URL:** `http://localhost:9000`
+   - **Authorization callback URL:** `http://localhost:9000/callback/github`
+4. Click **Register application**
+5. Copy the **Client ID**, then click **Generate a new client secret** and copy it
+6. Paste them into your `.env` file:
+   ```env
+   GITHUB_CLIENT_ID=your-client-id-here
+   GITHUB_CLIENT_SECRET=your-client-secret-here
+   ```
+
+After saving `.env`, restart the app and the Google/GitHub buttons will work.
 
 ---
 
-## Build & Run
+## Data Structures Used
 
-**Requirements:** Java 11+
-
-```bash
-# Clone the repo
-git clone https://github.com/pranavdadhe1806/file-system-simulator.git
-cd file-system-simulator
-
-# Compile
-javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/auth/*.java src/sync/*.java src/filesystem/*.java src/Main.java
-
-# Run
-java -cp out Main
-```
+| Data Structure | Feature | Concept |
+|---|---|---|
+| **Stack** | `cd -` (go back to previous directory) | LIFO directory history |
+| **Queue** | `mkdir a ; cd a ; create f.txt` (chained commands) | FIFO command buffer |
+| **Binary Search Tree** | `find <filename>` (global search) | O(log n) name lookup |
+| **HashMap** | `cd /deep/absolute/path` (instant jump) | O(1) path resolution |
+| **Sorting (Merge/Quick)** | `ls -size`, `ls -name`, `ls -date` | Custom comparator sorting |
+| **Graph + HashSet** | `ln -s <target> <link>` (symlinks) | Directed graph + cycle detection |
+| **LinkedList + Array** | `info <file>` (shows disk blocks) | File fragmentation simulation |
+| **N-ary Tree** | Directory hierarchy | Parent-child file system |
+| **MaxHeap** | `topk <k> <path>` | Top-k largest files |
 
 ---
 
 ## Commands
 
 ### Navigation
-| Command | Example | Description |
-|---|---|---|
-| `pwd` | `pwd` | Print current directory path |
-| `cd <name>` | `cd photos` | Navigate into a directory |
-| `cd ..` | `cd ..` | Go one level up |
-| `cd /` | `cd /` | Go back to root |
-| `cd <path>` | `cd home/user/docs` | Navigate directly to a path |
-
-### Directory Operations
-| Command | Example | Description |
-|---|---|---|
-| `mkdir <name>` | `mkdir photos` | Create a directory |
-| `rmdir <name>` | `rmdir photos` | Delete an empty directory |
-| `rmdir -f <name>` | `rmdir -f photos` | Force delete with all contents |
-| `rename <old> <new>` | `rename photos pics` | Rename a directory |
-
-### File Operations
-| Command | Example | Description |
-|---|---|---|
-| `create <name> <bytes>` | `create photo.jpg 2048` | Create a file with size in bytes |
-| `delete <name>` | `delete photo.jpg` | Delete a file |
-| `rename <old> <new>` | `rename a.txt b.txt` | Rename a file |
-| `info <name>` | `info photo.jpg` | Show full file metadata |
-
-### Listing & Search
-| Command | Example | Description |
-|---|---|---|
-| `ls` | `ls` | List files and folders |
-| `ls -l` | `ls -l` | Detailed listing with metadata |
-| `tree` | `tree` | Print full ASCII directory tree |
-| `tree <path>` | `tree home/user` | Print subtree from a path |
-| `find <name>` | `find photo.jpg` | Find file anywhere in tree |
-| `search -t <type>` | `search -t jpg` | Find all files of a type |
-| `topk <k>` | `topk 5` | Top k largest files (uses MaxHeap) |
-| `topk <k> <path>` | `topk 3 home/user` | Top k largest in a specific path |
-
-### Utility
 | Command | Description |
 |---|---|
+| `pwd` | Print current directory path |
+| `cd <dir>` | Navigate into a directory |
+| `cd ..` | Go one level up |
+| `cd /` | Go to filesystem root |
+| `cd -` | Go back to previous directory (Stack) |
+
+### Directory Operations
+| Command | Description |
+|---|---|
+| `mkdir <name>` | Create a directory |
+| `rmdir <name>` | Delete an empty directory |
+| `rmdir -f <name>` | Force delete directory and all contents |
+| `rename dir <old> <new>` | Rename a directory |
+
+### File Operations
+| Command | Description |
+|---|---|
+| `create <name>` | Create an empty file |
+| `delete <name>` | Delete a file |
+| `rename file <old> <new>` | Rename a file |
+| `info <name>` | Show file metadata + disk block allocation |
+
+### Listing & Search
+| Command | Description |
+|---|---|
+| `ls` | List files and folders |
+| `ls -l` | Detailed listing with size, type, date |
+| `ls -size` | Sort by file size (descending) |
+| `ls -name` | Sort alphabetically |
+| `ls -date` | Sort by modified date (newest first) |
+| `find <name>` | Fast global search using BST |
+| `search -t <type>` | Find all files of a given type |
+| `tree <path>` | Print ASCII directory tree |
+| `topk <k> <path>` | Top k largest files in a path |
+
+### Symlinks
+| Command | Description |
+|---|---|
+| `ln -s <target> <link_name>` | Create a symbolic link (with cycle detection) |
+
+### System
+| Command | Description |
+|---|---|
+| `whoami` | Show logged-in user details |
+| `logout` | Clear auth tokens and exit |
 | `help` | Show all commands |
-| `clear` | Clear the terminal |
-| `exit` | Exit the program |
+| `clear` | Clear terminal |
+| `exit` | Save state and exit |
 
-<br/>
+> **Tip:** You can chain multiple commands with `;` — e.g. `mkdir test ; cd test ; create hello.txt`
 
-## 🖥️ Example Session
+---
 
-```
-Welcome to File System Simulator!
-/sandbox> mkdir home
-Directory 'home' created successfully.
-
-/sandbox> cd home
-/sandbox/home> create resume.pdf 51200
-File 'resume.pdf' (50.0 KB) created successfully.
-
-/sandbox/home> create photo.jpg 2097152
-File 'photo.jpg' (2.0 MB) created successfully.
-
-/sandbox/home> ls -l
-NAME                         SIZE        TYPE      MODIFIED
-photo.jpg                    2.0 MB      jpg       2024-03-29 10:22:05
-resume.pdf                   50.0 KB     pdf       2024-03-29 10:22:01
-
-/sandbox/home> topk 1
-1. photo.jpg — 2.0 MB — /sandbox/home/photo.jpg
-
-/sandbox/home> find resume.pdf
-Found: /sandbox/home/resume.pdf
-
-/sandbox/home> tree
-/
-└── home/
-    ├── photo.jpg
-    └── resume.pdf
-
-/sandbox/home> cd ..
-/sandbox> rmdir -f home
-Directory 'home' removed successfully.
-
-/sandbox> exit
-Goodbye!
-```
-
-<br/>
-
-## 🔄 How It Works
+## Project Structure
 
 ```
-User types command in terminal
-        ↓
-   Main.java parses input
-        ↓
-   FileSystem.java executes:
-    ├── Updates Tree / LinkedList / HashMap / Heap
-    ├── Mirrors operation on disk (sandbox/)
-    └── Writes state.json via JsonExporter
-        ↓
-   Prompt updates to reflect current directory
+vaultfs-core/
+├── src/
+│   ├── models/
+│   │   ├── FileMetadata.java        # File metadata + disk block reference
+│   │   └── FileNode.java            # Directory node in the tree
+│   ├── datastructures/
+│   │   ├── DirectoryTree.java       # N-ary tree + HashMap lookups + BST
+│   │   ├── BinarySearchTree.java    # Custom BST for O(log n) file search
+│   │   ├── DiskSimulator.java       # LinkedList + Array block fragmentation
+│   │   ├── FileLinkedList.java      # Custom singly LinkedList for files
+│   │   ├── FileHashMap.java         # Custom HashMap with separate chaining
+│   │   └── FileHeap.java            # Custom MaxHeap for top-k queries
+│   ├── auth/
+│   │   ├── AuthManager.java         # Login flow, whoami, logout
+│   │   ├── OAuthConfig.java         # Reads credentials from .env
+│   │   └── OAuthHandler.java        # Google/GitHub OAuth 2.0 code exchange
+│   ├── sync/
+│   │   └── FirestoreSync.java       # Push state.json to Firebase
+│   ├── filesystem/
+│   │   └── FileSystem.java          # Core engine — all DS + disk ops
+│   ├── utils/
+│   │   ├── EnvParser.java           # .env file parser
+│   │   ├── JsonExporter.java        # Serializes state to state.json
+│   │   ├── Colors.java              # ANSI color codes
+│   │   └── Banner.java              # ASCII art banner
+│   └── Main.java                    # CLI entry point + command router
+├── frontend/                        # React login UI (served by Java)
+├── .env.example                     # Template for environment variables
+├── .gitignore
+├── FEATURE_SPEC.md                  # Data structure feature specifications
+└── README.md
 ```
 
-<br/>
+---
 
-## 📤 state.json
-
-After every command, the simulator exports a `state.json` snapshot:
-
-```json
-{
-  "currentPath": "/sandbox/home",
-  "tree": {
-    "name": "/",
-    "path": "/sandbox",
-    "isDirectory": true,
-    "files": [],
-    "children": [
-      {
-        "name": "home",
-        "path": "/sandbox/home",
-        "isDirectory": true,
-        "files": [
-          {
-            "filename": "resume.pdf",
-            "sizeBytes": 51200,
-            "formattedSize": "50.0 KB",
-            "type": "pdf",
-            "createdAt": "2024-03-29 10:22:01",
-            "modifiedAt": "2024-03-29 10:22:01"
-          }
-        ],
-        "children": []
-      }
-    ]
-  },
-  "heap": [
-    {
-      "filename": "resume.pdf",
-      "absolutePath": "/sandbox/home/resume.pdf",
-      "sizeBytes": 51200
-    }
-  ]
-}
-```
-
-This is consumed by the **React frontend** (separate repo) to visualize the Tree, Heap, and HashMap in real time.
-
-<br/>
-
-## 🔗 Related
-
-- **Frontend Visualization Repo** — React app that reads `state.json` and renders interactive DS visualizations *(coming soon)*
-
-<br/>
-
-## 📄 License
+## License
 
 MIT
