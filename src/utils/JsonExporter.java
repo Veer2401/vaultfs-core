@@ -126,7 +126,7 @@ public class JsonExporter {
         try (FileWriter writer = new FileWriter(outputPath)) {
             writer.write(json);
         } catch (IOException e) {
-            System.out.println("Error writing JSON to file: " + e.getMessage());
+            Logger.error("Error writing JSON to file: " + e.getMessage());
         }
     }
 }

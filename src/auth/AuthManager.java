@@ -208,7 +208,7 @@ public class AuthManager {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
                     if (!OAuthConfig.isGoogleConfigured()) {
-                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>Google OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set google.client.id and google.client.secret in oauth.properties</p></div></div></body></html>";
+                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>Google OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env</p></div></div></body></html>";
                         exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
                         exchange.sendResponseHeaders(200, msg.getBytes("UTF-8").length);
                         OutputStream os = exchange.getResponseBody();
@@ -228,7 +228,7 @@ public class AuthManager {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
                     if (!OAuthConfig.isGitHubConfigured()) {
-                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>GitHub OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set github.client.id and github.client.secret in oauth.properties</p></div></div></body></html>";
+                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>GitHub OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env</p></div></div></body></html>";
                         exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
                         exchange.sendResponseHeaders(200, msg.getBytes("UTF-8").length);
                         OutputStream os = exchange.getResponseBody();

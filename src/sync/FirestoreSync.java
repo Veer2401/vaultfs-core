@@ -14,7 +14,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import utils.Colors;
+import utils.Logger;
 
 /** Pushes state snapshots to Firestore using Google OAuth service-account JWT flow. */
 public class FirestoreSync {
@@ -35,7 +35,7 @@ public class FirestoreSync {
 
             String accessToken = getAccessToken();
             if (accessToken == null) {
-                System.out.println(Colors.c(Colors.RED, "[sync] Auth failed — skipping push"));
+                Logger.warn("[sync] Auth failed - skipping push");
                 return;
             }
 
@@ -51,6 +51,7 @@ public class FirestoreSync {
             int maxRetries = 3;
             for (int attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
+                    Logger.debug("[sync] Push attempt " + attempt + " of " + maxRetries);
                     HttpURLConnection conn = (HttpURLConnection) URI.create(firestoreUrl).toURL().openConnection();
                     conn.setConnectTimeout(5000);
                     conn.setReadTimeout(5000);
@@ -71,19 +72,20 @@ public class FirestoreSync {
                     } else if (responseCode >= 500) {
                         throw new java.io.IOException("Server error: " + responseCode);
                     } else {
-                        System.out.println(Colors.c(Colors.RED, "[sync] Push failed: " + responseCode));
+                        Logger.error("[sync] Push failed: " + responseCode);
                         break;
                     }
                 } catch (Exception e) {
                     if (attempt == maxRetries) {
-                        System.out.println(Colors.c(Colors.RED, "[sync] Push error: " + e.getMessage()));
+                        Logger.error("[sync] Push error: " + e.getMessage());
                     } else {
+                        Logger.debug("[sync] Retry scheduled after failure: " + e.getMessage());
                         Thread.sleep((long) Math.pow(2, attempt) * 1000); // Exponential backoff
                     }
                 }
             }
         } catch (Exception e) {
-            System.out.println(Colors.c(Colors.RED, "[sync] Push error: " + e.getMessage()));
+            Logger.error("[sync] Push error: " + e.getMessage());
         }
     }
 
