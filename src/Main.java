@@ -69,13 +69,25 @@ public class Main {
             if ("pwd".equals(command)) {
                 fs.pwd();
             } else if ("cd".equals(command)) {
-                fs.cd(tokens[1]);
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'cd'. Type 'help' for usage."));
+                } else {
+                    fs.cd(tokens[1]);
+                }
             } else if ("mkdir".equals(command)) {
-                fs.mkdir(tokens[1]);
-            } else if ("rmdir".equals(command) && tokens.length > 2 && "-f".equals(tokens[1])) {
-                fs.rmdir(tokens[2], true);
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'mkdir'. Type 'help' for usage."));
+                } else {
+                    fs.mkdir(tokens[1]);
+                }
             } else if ("rmdir".equals(command)) {
-                fs.rmdir(tokens[1], false);
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'rmdir'. Type 'help' for usage."));
+                } else if (tokens.length > 2 && "-f".equals(tokens[1])) {
+                    fs.rmdir(tokens[2], true);
+                } else {
+                    fs.rmdir(tokens[1], false);
+                }
             } else if ("rename".equals(command)) {
                 if (tokens.length < 4) {
                     System.out.println(Colors.c(Colors.RED, "Usage: rename <file|directory> <old> <new>"));
@@ -87,17 +99,35 @@ public class Main {
                     System.out.println(Colors.c(Colors.RED, "Specify rename target: file or directory."));
                 }
             } else if ("create".equals(command)) {
-                fs.createFile(tokens[1]);
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'create'. Type 'help' for usage."));
+                } else {
+                    fs.createFile(tokens[1]);
+                }
             } else if ("delete".equals(command)) {
-                fs.deleteFile(tokens[1]);
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'delete'. Type 'help' for usage."));
+                } else {
+                    fs.deleteFile(tokens[1]);
+                }
             } else if ("info".equals(command)) {
-                fs.info(tokens[1]);
-            } else if ("find".equals(command)) {
-                fs.find(tokens[1]);
-            } else if ("search".equals(command) && tokens.length > 2 && "-t".equals(tokens[1])) {
-                fs.searchByType(tokens[2]);
-            } else if ("search".equals(command)) {
-                fs.find(tokens[1]);
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'info'. Type 'help' for usage."));
+                } else {
+                    fs.info(tokens[1]);
+                }
+            } else if ("find".equals(command) || "search".equals(command)) {
+                if (tokens.length < 2) {
+                    System.out.println(Colors.c(Colors.RED, "Missing argument. Type 'help' for usage."));
+                } else if ("search".equals(command) && "-t".equals(tokens[1])) {
+                    if (tokens.length < 3) {
+                        System.out.println(Colors.c(Colors.RED, "Missing argument for 'search -t'. Type 'help' for usage."));
+                    } else {
+                        fs.searchByType(tokens[2]);
+                    }
+                } else {
+                    fs.find(tokens[1]);
+                }
             } else if ("ls".equals(command)) {
                 boolean detailed = false;
                 String sortFlag = null;
@@ -109,16 +139,28 @@ public class Main {
                     }
                 }
                 fs.ls(detailed, sortFlag);
-            } else if ("tree".equals(command) && tokens.length > 1) {
-                fs.tree(tokens[1]);
             } else if ("tree".equals(command)) {
-                System.out.println(Colors.c(Colors.RED, "Path is required. Usage: tree <path>"));
-            } else if ("ln".equals(command) && tokens.length > 3 && "-s".equals(tokens[1])) {
-                fs.createSymlink(tokens[2], tokens[3]);
-            } else if ("topk".equals(command) && tokens.length > 2) {
-                fs.topK(Integer.parseInt(tokens[1]), tokens[2]);
+                if (tokens.length > 1) {
+                    fs.tree(tokens[1]);
+                } else {
+                    System.out.println(Colors.c(Colors.RED, "Path is required. Usage: tree <path>"));
+                }
+            } else if ("ln".equals(command)) {
+                if (tokens.length > 3 && "-s".equals(tokens[1])) {
+                    fs.createSymlink(tokens[2], tokens[3]);
+                } else {
+                    System.out.println(Colors.c(Colors.RED, "Usage: ln -s <target> <link>"));
+                }
             } else if ("topk".equals(command)) {
-                System.out.println(Colors.c(Colors.RED, "Path is required. Usage: topk <k> <path>"));
+                if (tokens.length > 2) {
+                    try {
+                        fs.topK(Integer.parseInt(tokens[1]), tokens[2]);
+                    } catch (NumberFormatException e) {
+                        System.out.println(Colors.c(Colors.RED, "Invalid number. Usage: topk <k> <path>"));
+                    }
+                } else {
+                    System.out.println(Colors.c(Colors.RED, "Path is required. Usage: topk <k> <path>"));
+                }
             } else if ("help".equals(command)) {
                 printHelp();
             } else if ("whoami".equals(command)) {
@@ -132,10 +174,6 @@ public class Main {
             } else {
                 System.out.println(Colors.c(Colors.RED, "[command not found] type 'help' to see all commands"));
             }
-        } catch (ArrayIndexOutOfBoundsException e) {
-            System.out.println(Colors.c(Colors.RED, "Missing argument for '" + command + "'. Type 'help' for usage."));
-        } catch (NumberFormatException e) {
-            System.out.println(Colors.c(Colors.RED, "Invalid number. Usage: topk <k>"));
         } catch (Exception e) {
             System.out.println(Colors.c(Colors.RED, "Error: " + e.getMessage()));
         }

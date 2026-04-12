@@ -48,21 +48,39 @@ public class FirestoreSync {
             body.append("}");
             body.append("}");
 
-            HttpURLConnection conn = (HttpURLConnection) URI.create(firestoreUrl).toURL().openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("X-HTTP-Method-Override", "PATCH");
-            conn.setRequestProperty("Authorization", "Bearer " + accessToken);
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("Accept", "application/json");
-            conn.setDoOutput(true);
+            int maxRetries = 3;
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    HttpURLConnection conn = (HttpURLConnection) URI.create(firestoreUrl).toURL().openConnection();
+                    conn.setConnectTimeout(5000);
+                    conn.setReadTimeout(5000);
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("X-HTTP-Method-Override", "PATCH");
+                    conn.setRequestProperty("Authorization", "Bearer " + accessToken);
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setRequestProperty("Accept", "application/json");
+                    conn.setDoOutput(true);
 
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(body.toString().getBytes("UTF-8"));
-            }
+                    try (OutputStream os = conn.getOutputStream()) {
+                        os.write(body.toString().getBytes("UTF-8"));
+                    }
 
-            int responseCode = conn.getResponseCode();
-            if (responseCode != 200) {
-                System.out.println(Colors.c(Colors.RED, "[sync] Push failed: " + responseCode));
+                    int responseCode = conn.getResponseCode();
+                    if (responseCode >= 200 && responseCode < 300) {
+                        break;
+                    } else if (responseCode >= 500) {
+                        throw new java.io.IOException("Server error: " + responseCode);
+                    } else {
+                        System.out.println(Colors.c(Colors.RED, "[sync] Push failed: " + responseCode));
+                        break;
+                    }
+                } catch (Exception e) {
+                    if (attempt == maxRetries) {
+                        System.out.println(Colors.c(Colors.RED, "[sync] Push error: " + e.getMessage()));
+                    } else {
+                        Thread.sleep((long) Math.pow(2, attempt) * 1000); // Exponential backoff
+                    }
+                }
             }
         } catch (Exception e) {
             System.out.println(Colors.c(Colors.RED, "[sync] Push error: " + e.getMessage()));

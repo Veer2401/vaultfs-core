@@ -36,12 +36,6 @@ public class AuthManager {
     private static final String NAME_FILE = TOKEN_DIR + "/name";
 
     private static final String CONFIG_FILE = TOKEN_DIR + "/config";
-    private static final String WHOAMI_TITLE = "Account Details";
-    private static final String WHOAMI_EMAIL_LABEL = "Email";
-    private static final String WHOAMI_DEVICE_LABEL = "Device ID";
-    private static final String WHOAMI_STATUS_LABEL = "Status";
-    private static final String WHOAMI_STATUS_VALUE = "● Online";
-    private static final int WHOAMI_MIN_WIDTH = 37;
 
 
 
@@ -372,50 +366,11 @@ public class AuthManager {
             System.out.println(Colors.c(Colors.RED, "Not logged in."));
             return;
         }
-
-        String email = getUserEmail();
-        String deviceId = getDeviceId();
-
-        int labelWidth = Math.max(
-            Math.max(WHOAMI_EMAIL_LABEL.length(), WHOAMI_DEVICE_LABEL.length()),
-            WHOAMI_STATUS_LABEL.length()
-        );
-        int valueWidth = Math.max(
-            Math.max(email.length(), deviceId.length()),
-            WHOAMI_STATUS_VALUE.length()
-        );
-        int contentWidth = 1 + labelWidth + 3 + valueWidth + 1;
-        int boxWidth = Math.max(WHOAMI_MIN_WIDTH, contentWidth);
-        
-        String borderTop = "┌" + "─".repeat(boxWidth) + "┐";
-        String borderMid = "├" + "─".repeat(boxWidth) + "┤";
-        String borderBottom = "└" + "─".repeat(boxWidth) + "┘";
-
-        System.out.println(Colors.c(Colors.GRAY, borderTop));
-
-        int titlePadLeft = (boxWidth - WHOAMI_TITLE.length()) / 2;
-        int titlePadRight = boxWidth - WHOAMI_TITLE.length() - titlePadLeft;
-        System.out.println(Colors.c(Colors.GRAY, "│") + " ".repeat(titlePadLeft) + WHOAMI_TITLE + " ".repeat(titlePadRight) + Colors.c(Colors.GRAY, "│"));
-        
-        System.out.println(Colors.c(Colors.GRAY, borderMid));
-
-        printWhoamiRow(boxWidth, labelWidth, WHOAMI_EMAIL_LABEL, email, Colors.YELLOW);
-        printWhoamiRow(boxWidth, labelWidth, WHOAMI_DEVICE_LABEL, deviceId, Colors.CYAN);
-        printWhoamiRow(boxWidth, labelWidth, WHOAMI_STATUS_LABEL, WHOAMI_STATUS_VALUE, Colors.GREEN);
-                
-        System.out.println(Colors.c(Colors.GRAY, borderBottom));
-    }
-
-    /** Prints one account detail row using dynamic label and value widths. */
-    private static void printWhoamiRow(int boxWidth, int labelWidth, String label, String value, String valueColor) {
-        String paddedLabel = String.format("%-" + labelWidth + "s", label);
-        int trailingPad = Math.max(0, boxWidth - (1 + labelWidth + 3 + value.length()));
-
-        System.out.println(Colors.c(Colors.GRAY, "│") + " "
-                + Colors.c(Colors.GRAY, paddedLabel) + " : "
-                + Colors.c(valueColor, value)
-                + " ".repeat(trailingPad)
-                + Colors.c(Colors.GRAY, "│"));
+        System.out.println(Colors.c(Colors.GRAY, "==== Account Details ===="));
+        System.out.println("Email    : " + Colors.c(Colors.YELLOW, getUserEmail()));
+        System.out.println("Device ID: " + Colors.c(Colors.CYAN, getDeviceId()));
+        System.out.println("Status   : " + Colors.c(Colors.GREEN, "● Online"));
+        System.out.println(Colors.c(Colors.GRAY, "========================="));
     }
 
 

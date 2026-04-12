@@ -13,7 +13,7 @@ public class DiskSimulator {
     private static final int BLOCK_SIZE = 4096;
     private static final int TOTAL_BLOCKS = 2560; // 10MB total
     private Block[] disk;
-    private int freeBlocks;
+    private java.util.Queue<Integer> freeList;
 
     public static class Block {
         public int id;
@@ -29,10 +29,11 @@ public class DiskSimulator {
 
     public DiskSimulator() {
         this.disk = new Block[TOTAL_BLOCKS];
+        this.freeList = new java.util.LinkedList<>();
         for (int i = 0; i < TOTAL_BLOCKS; i++) {
             this.disk[i] = new Block(i);
+            this.freeList.add(i);
         }
-        this.freeBlocks = TOTAL_BLOCKS;
     }
 
     /**
@@ -43,8 +44,8 @@ public class DiskSimulator {
         int requiredBlocks = (int) Math.ceil((double) sizeBytes / BLOCK_SIZE);
         if (requiredBlocks == 0) requiredBlocks = 1; // Minimum 1 block
 
-        if (requiredBlocks > freeBlocks) {
-            Logger.warn("DiskSimulator Error: Not enough free blocks. Required: " + requiredBlocks + ", Available: " + freeBlocks);
+        if (requiredBlocks > freeList.size()) {
+            Logger.warn("DiskSimulator Error: Not enough free blocks. Required: " + requiredBlocks + ", Available: " + freeList.size());
             return -1;
         }
 
@@ -52,23 +53,21 @@ public class DiskSimulator {
         int prevBlockId = -1;
         int allocated = 0;
 
-        // Find free blocks and chain them together (simulating fragmentation)
-        for (int i = 0; i < TOTAL_BLOCKS && allocated < requiredBlocks; i++) {
-            if (!disk[i].isUsed) {
-                disk[i].isUsed = true;
+        // Pull blocks from freeList avoiding O(n) scan
+        while (allocated < requiredBlocks && !freeList.isEmpty()) {
+            int i = freeList.poll();
+            disk[i].isUsed = true;
                 
-                if (firstBlockId == -1) {
-                    firstBlockId = i;
-                }
-                
-                if (prevBlockId != -1) {
-                    disk[prevBlockId].nextBlockId = i;
-                }
-                
-                prevBlockId = i;
-                allocated++;
-                freeBlocks--;
+            if (firstBlockId == -1) {
+                firstBlockId = i;
             }
+                
+            if (prevBlockId != -1) {
+                disk[prevBlockId].nextBlockId = i;
+            }
+                
+            prevBlockId = i;
+            allocated++;
         }
         
         // Mark the last block as EOF
@@ -91,7 +90,7 @@ public class DiskSimulator {
             block.isUsed = false;
             int nextId = block.nextBlockId;
             block.nextBlockId = -1;
-            freeBlocks++;
+            freeList.add(currentId);
             currentId = nextId;
         }
     }
@@ -110,7 +109,7 @@ public class DiskSimulator {
     }
 
     public int getFreeBlocks() {
-        return freeBlocks;
+        return freeList.size();
     }
 
     public int getTotalBlocks() {

@@ -35,7 +35,7 @@ public class EnvParser {
                 }
             }
         } catch (IOException e) {
-            // .env file not found or cannot be read
+            System.err.println("[EnvParser] Warning: Failed to load .env file - " + e.getMessage());
         }
     }
 

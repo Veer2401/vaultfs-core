@@ -5,6 +5,7 @@ import java.util.List;
 
 /**
  * A Custom Binary Search Tree for fast O(log n) file name lookups.
+ * Note: Not self-balancing. Depending on insertion order, worst-case lookup can be O(n).
  * Handles duplicate file names by maintaining a list of absolute paths.
  */
 public class BinarySearchTree {

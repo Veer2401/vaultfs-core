@@ -11,14 +11,21 @@ import models.FileNode;
 public class SearchService {
     /** Collects formatted results for files whose metadata type matches the input type. */
     public void collectByType(FileNode node, String type, List<String> results) {
-        for (FileMetadata metadata : node.files.getAll()) {
-            if (metadata.type.equals(type)) {
-                results.add(node.absolutePath + File.separator + metadata.filename + " — " + metadata.formattedSize());
-            }
-        }
+        java.util.Queue<FileNode> queue = new java.util.LinkedList<>();
+        queue.add(node);
 
-        for (FileNode child : node.children) {
-            collectByType(child, type, results);
+        while (!queue.isEmpty()) {
+            FileNode current = queue.poll();
+            if (current.files != null) {
+                for (FileMetadata metadata : current.files.getAll()) {
+                    if (metadata.type.equals(type)) {
+                        results.add(current.absolutePath + File.separator + metadata.filename + " — " + metadata.formattedSize());
+                    }
+                }
+            }
+            for (FileNode child : current.children) {
+                queue.add(child);
+            }
         }
     }
 
