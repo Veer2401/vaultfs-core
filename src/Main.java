@@ -1,4 +1,6 @@
 import auth.AuthManager;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Scanner;
 import utils.Banner;
 import utils.Colors;
@@ -6,6 +8,80 @@ import utils.Colors;
 /** Entry point for the File System Simulator CLI. */
 public class Main {
     private static final int CLEAR_SCREEN_LINES = 50;
+
+    /** Functional interface for a single CLI command handler. */
+    @FunctionalInterface
+    private interface Command {
+        /** Returns false to terminate the REPL loop. */
+        boolean run(String[] tokens, filesystem.FileSystem fs);
+    }
+
+    /** Ordered registry of command name -> handler. */
+    private static final Map<String, Command> COMMANDS = new LinkedHashMap<>();
+
+    static {
+        COMMANDS.put("pwd",    (t, fs) -> { fs.pwd(); return true; });
+        COMMANDS.put("cd",     (t, fs) -> { requireArg(t, "cd"); if (t.length >= 2) fs.cd(t[1]); return true; });
+        COMMANDS.put("mkdir",  (t, fs) -> { requireArg(t, "mkdir"); if (t.length >= 2) fs.mkdir(t[1]); return true; });
+        COMMANDS.put("rmdir",  (t, fs) -> {
+            requireArg(t, "rmdir");
+            if (t.length >= 2) {
+                if (t.length > 2 && "-f".equals(t[1])) fs.rmdir(t[2], true);
+                else fs.rmdir(t[1], false);
+            }
+            return true;
+        });
+        COMMANDS.put("rename", (t, fs) -> {
+            if (t.length < 4) { System.out.println(Colors.c(Colors.RED, "Usage: rename <file|directory> <old> <new>")); }
+            else if ("file".equalsIgnoreCase(t[1])) fs.renameFile(t[2], t[3]);
+            else if ("directory".equalsIgnoreCase(t[1]) || "dir".equalsIgnoreCase(t[1])) fs.renameDirectory(t[2], t[3]);
+            else System.out.println(Colors.c(Colors.RED, "Specify rename target: file or directory."));
+            return true;
+        });
+        COMMANDS.put("create", (t, fs) -> { requireArg(t, "create"); if (t.length >= 2) fs.createFile(t[1]); return true; });
+        COMMANDS.put("delete", (t, fs) -> { requireArg(t, "delete"); if (t.length >= 2) fs.deleteFile(t[1]); return true; });
+        COMMANDS.put("info",   (t, fs) -> { requireArg(t, "info"); if (t.length >= 2) fs.info(t[1]); return true; });
+        COMMANDS.put("find",   (t, fs) -> { requireArg(t, "find"); if (t.length >= 2) fs.find(t[1]); return true; });
+        COMMANDS.put("search", (t, fs) -> {
+            if (t.length < 2) { System.out.println(Colors.c(Colors.RED, "Missing argument. Type 'help' for usage.")); }
+            else if ("-t".equals(t[1])) {
+                if (t.length < 3) System.out.println(Colors.c(Colors.RED, "Missing argument for 'search -t'. Type 'help' for usage."));
+                else fs.searchByType(t[2]);
+            } else { fs.find(t[1]); }
+            return true;
+        });
+        COMMANDS.put("ls", (t, fs) -> {
+            boolean detailed = false; String sortFlag = null;
+            for (int i = 1; i < t.length; i++) {
+                if ("-l".equals(t[i])) detailed = true;
+                else if ("-name".equals(t[i]) || "-size".equals(t[i]) || "-date".equals(t[i])) sortFlag = t[i];
+            }
+            fs.ls(detailed, sortFlag);
+            return true;
+        });
+        COMMANDS.put("tree", (t, fs) -> {
+            if (t.length > 1) fs.tree(t[1]);
+            else System.out.println(Colors.c(Colors.RED, "Path is required. Usage: tree <path>"));
+            return true;
+        });
+        COMMANDS.put("ln", (t, fs) -> {
+            if (t.length > 3 && "-s".equals(t[1])) fs.createSymlink(t[2], t[3]);
+            else System.out.println(Colors.c(Colors.RED, "Usage: ln -s <target> <link>"));
+            return true;
+        });
+        COMMANDS.put("topk", (t, fs) -> {
+            if (t.length > 2) {
+                try { fs.topK(Integer.parseInt(t[1]), t[2]); }
+                catch (NumberFormatException e) { System.out.println(Colors.c(Colors.RED, "Invalid number. Usage: topk <k> <path>")); }
+            } else { System.out.println(Colors.c(Colors.RED, "Path is required. Usage: topk <k> <path>")); }
+            return true;
+        });
+        COMMANDS.put("help",   (t, fs) -> { printHelp(); return true; });
+        COMMANDS.put("whoami", (t, fs) -> { AuthManager.whoami(); return true; });
+        COMMANDS.put("clear",  (t, fs) -> { clearScreen(); return true; });
+        COMMANDS.put("exit",   (t, fs) -> { AuthManager.logout(); System.out.println(Colors.c(Colors.GREEN, "Goodbye!")); return false; });
+        COMMANDS.put("logout", (t, fs) -> { AuthManager.logout(); System.out.println(Colors.c(Colors.GREEN, "Goodbye!")); return false; });
+    }
 
     /** Starts the command loop and routes input to FileSystem operations. */
     public static void main(String[] args) {
@@ -60,124 +136,29 @@ public class Main {
         }
     }
 
-    /** Executes one parsed command; returns false when the loop should terminate. */
+    /** Prints a missing-argument message if fewer than 2 tokens are provided. */
+    private static void requireArg(String[] tokens, String cmdName) {
+        if (tokens.length < 2) {
+            System.out.println(Colors.c(Colors.RED, "Missing argument for '" + cmdName + "'. Type 'help' for usage."));
+        }
+    }
+
+    /** Dispatches a parsed command through the registry; returns false to exit. */
     private static boolean executeCommand(String currentCmd, filesystem.FileSystem fs) {
         String[] tokens = currentCmd.split("\\s+");
         String command = tokens[0];
 
-        try {
-            if ("pwd".equals(command)) {
-                fs.pwd();
-            } else if ("cd".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'cd'. Type 'help' for usage."));
-                } else {
-                    fs.cd(tokens[1]);
-                }
-            } else if ("mkdir".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'mkdir'. Type 'help' for usage."));
-                } else {
-                    fs.mkdir(tokens[1]);
-                }
-            } else if ("rmdir".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'rmdir'. Type 'help' for usage."));
-                } else if (tokens.length > 2 && "-f".equals(tokens[1])) {
-                    fs.rmdir(tokens[2], true);
-                } else {
-                    fs.rmdir(tokens[1], false);
-                }
-            } else if ("rename".equals(command)) {
-                if (tokens.length < 4) {
-                    System.out.println(Colors.c(Colors.RED, "Usage: rename <file|directory> <old> <new>"));
-                } else if ("file".equalsIgnoreCase(tokens[1])) {
-                    fs.renameFile(tokens[2], tokens[3]);
-                } else if ("directory".equalsIgnoreCase(tokens[1]) || "dir".equalsIgnoreCase(tokens[1])) {
-                    fs.renameDirectory(tokens[2], tokens[3]);
-                } else {
-                    System.out.println(Colors.c(Colors.RED, "Specify rename target: file or directory."));
-                }
-            } else if ("create".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'create'. Type 'help' for usage."));
-                } else {
-                    fs.createFile(tokens[1]);
-                }
-            } else if ("delete".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'delete'. Type 'help' for usage."));
-                } else {
-                    fs.deleteFile(tokens[1]);
-                }
-            } else if ("info".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument for 'info'. Type 'help' for usage."));
-                } else {
-                    fs.info(tokens[1]);
-                }
-            } else if ("find".equals(command) || "search".equals(command)) {
-                if (tokens.length < 2) {
-                    System.out.println(Colors.c(Colors.RED, "Missing argument. Type 'help' for usage."));
-                } else if ("search".equals(command) && "-t".equals(tokens[1])) {
-                    if (tokens.length < 3) {
-                        System.out.println(Colors.c(Colors.RED, "Missing argument for 'search -t'. Type 'help' for usage."));
-                    } else {
-                        fs.searchByType(tokens[2]);
-                    }
-                } else {
-                    fs.find(tokens[1]);
-                }
-            } else if ("ls".equals(command)) {
-                boolean detailed = false;
-                String sortFlag = null;
-                for (int i = 1; i < tokens.length; i++) {
-                    if ("-l".equals(tokens[i])) {
-                        detailed = true;
-                    } else if ("-name".equals(tokens[i]) || "-size".equals(tokens[i]) || "-date".equals(tokens[i])) {
-                        sortFlag = tokens[i];
-                    }
-                }
-                fs.ls(detailed, sortFlag);
-            } else if ("tree".equals(command)) {
-                if (tokens.length > 1) {
-                    fs.tree(tokens[1]);
-                } else {
-                    System.out.println(Colors.c(Colors.RED, "Path is required. Usage: tree <path>"));
-                }
-            } else if ("ln".equals(command)) {
-                if (tokens.length > 3 && "-s".equals(tokens[1])) {
-                    fs.createSymlink(tokens[2], tokens[3]);
-                } else {
-                    System.out.println(Colors.c(Colors.RED, "Usage: ln -s <target> <link>"));
-                }
-            } else if ("topk".equals(command)) {
-                if (tokens.length > 2) {
-                    try {
-                        fs.topK(Integer.parseInt(tokens[1]), tokens[2]);
-                    } catch (NumberFormatException e) {
-                        System.out.println(Colors.c(Colors.RED, "Invalid number. Usage: topk <k> <path>"));
-                    }
-                } else {
-                    System.out.println(Colors.c(Colors.RED, "Path is required. Usage: topk <k> <path>"));
-                }
-            } else if ("help".equals(command)) {
-                printHelp();
-            } else if ("whoami".equals(command)) {
-                AuthManager.whoami();
-            } else if ("clear".equals(command)) {
-                clearScreen();
-            } else if ("exit".equals(command) || "logout".equals(command)) {
-                AuthManager.logout();
-                System.out.println(Colors.c(Colors.GREEN, "Goodbye!"));
-                return false;
-            } else {
-                System.out.println(Colors.c(Colors.RED, "[command not found] type 'help' to see all commands"));
+        Command handler = COMMANDS.get(command);
+        if (handler != null) {
+            try {
+                return handler.run(tokens, fs);
+            } catch (Exception e) {
+                System.out.println(Colors.c(Colors.RED, "Error: " + e.getMessage()));
+                return true;
             }
-        } catch (Exception e) {
-            System.out.println(Colors.c(Colors.RED, "Error: " + e.getMessage()));
         }
 
+        System.out.println(Colors.c(Colors.RED, "[command not found] type 'help' to see all commands"));
         return true;
     }
 

@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import sync.FirestoreSync;
 import utils.Colors;
 import utils.Logger;
@@ -33,6 +36,12 @@ public class FileSystem {
     public models.FileNode currentDirectory;
     private utils.JsonExporter exporter;
     private Stack<String> historyStack;
+    private final ExecutorService syncExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "vaultfs-sync");
+        t.setDaemon(true);
+        return t;
+    });
+    private final AtomicBoolean syncPending = new AtomicBoolean(false);
 
     /** Initializes the tree from the current working directory and syncs from disk. */
     public FileSystem() {
@@ -127,6 +136,11 @@ public class FileSystem {
         }
 
         String absolutePath = currentDirectory.absolutePath + File.separator + name;
+        if (!isWithinBoundary(currentDirectory.absolutePath, absolutePath)) {
+            System.out.println(Colors.c(Colors.RED, "Invalid path: escapes current directory boundary."));
+            exportState();
+            return;
+        }
         boolean created = new File(absolutePath).mkdir();
         if (!created) {
             System.out.println(Colors.c(Colors.RED, "Failed to create directory on disk: " + name));
@@ -215,6 +229,11 @@ public class FileSystem {
 
         String oldPath = node.absolutePath;
         String newPath = currentDirectory.absolutePath + File.separator + newName;
+        if (!isWithinBoundary(currentDirectory.absolutePath, newPath)) {
+            System.out.println(Colors.c(Colors.RED, "Invalid path: escapes current directory boundary."));
+            exportState();
+            return;
+        }
         if (new File(newPath).exists()) {
             System.out.println(Colors.c(Colors.RED, "Target already exists on disk: " + newName));
             exportState();
@@ -258,6 +277,11 @@ public class FileSystem {
         }
 
         String filePath = currentDirectory.absolutePath + File.separator + filename;
+        if (!isWithinBoundary(currentDirectory.absolutePath, filePath)) {
+            System.out.println(Colors.c(Colors.RED, "Invalid path: escapes current directory boundary."));
+            exportState();
+            return;
+        }
         File diskFile = new File(filePath);
         try {
             boolean created = diskFile.createNewFile();
@@ -305,6 +329,11 @@ public class FileSystem {
         }
 
         String filePath = currentDirectory.absolutePath + File.separator + filename;
+        if (!isWithinBoundary(currentDirectory.absolutePath, filePath)) {
+            System.out.println(Colors.c(Colors.RED, "Invalid path: escapes current directory boundary."));
+            exportState();
+            return;
+        }
         File diskFile = new File(filePath);
         if (!diskFile.exists() || !diskFile.isFile()) {
             System.out.println(Colors.c(Colors.RED, "File not found on disk: " + filename));
@@ -356,6 +385,12 @@ public class FileSystem {
 
         String oldPath = currentDirectory.absolutePath + File.separator + oldName;
         String newPath = currentDirectory.absolutePath + File.separator + newName;
+        if (!isWithinBoundary(currentDirectory.absolutePath, oldPath)
+                || !isWithinBoundary(currentDirectory.absolutePath, newPath)) {
+            System.out.println(Colors.c(Colors.RED, "Invalid path: escapes current directory boundary."));
+            exportState();
+            return;
+        }
         File oldDiskFile = new File(oldPath);
         File newDiskFile = new File(newPath);
         if (!oldDiskFile.exists() || !oldDiskFile.isFile()) {
@@ -822,12 +857,32 @@ public class FileSystem {
                 || normalizedTarget.startsWith(normalizedRoot + File.separator.toLowerCase());
     }
 
-    /** Allows plain names only so commands operate within current directory scope. */
+    /** Allows plain names only so commands operate within current directory scope.
+     *  Rejects path separators, traversal patterns (..), and null bytes. */
     private boolean isSimpleName(String name) {
         if (name == null || name.trim().isEmpty()) {
             return false;
         }
-        return !(name.contains("/") || name.contains("\\"));
+        if (name.contains("/") || name.contains("\\") || name.contains("\0")) {
+            return false;
+        }
+        if (".".equals(name) || "..".equals(name)) {
+            return false;
+        }
+        return true;
+    }
+
+    /** Validates that a resolved path stays within the given parent directory boundary.
+     *  Uses canonical paths to defeat symlink or traversal escapes. */
+    private boolean isWithinBoundary(String parentPath, String childPath) {
+        try {
+            String canonicalParent = new File(parentPath).getCanonicalPath();
+            String canonicalChild = new File(childPath).getCanonicalPath();
+            return canonicalChild.startsWith(canonicalParent + File.separator)
+                || canonicalChild.equals(canonicalParent);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** Creates a symbolic link (shortcut) to another directory and checks for cycles. */
@@ -881,26 +936,31 @@ public class FileSystem {
         exportState();
     }
 
-    /** Exports the current root, active directory, and global heap state to state.json. */
+    /** Exports the current root, active directory, and global heap state to state.json.
+     *  Cloud sync is dispatched asynchronously on a daemon thread with debounce. */
     public void exportState() {
         exporter.export(tree.getRoot(), currentDirectory, globalHeap);
-        if (AuthManager.isLoggedIn()) {
-            try {
-                String stateContent = new String(
-                        java.nio.file.Files.readAllBytes(
-                                java.nio.file.Paths.get(
-                                        System.getProperty("user.dir") + java.io.File.separator + "state.json"
-                                )
-                        )
-                );
-                FirestoreSync.push(
-                        AuthManager.getUserEmail(),
-                        AuthManager.getDeviceId(),
-                        stateContent
-                );
-            } catch (Exception e) {
-                Logger.debug("Cloud sync skipped due to error: " + e.getMessage());
-            }
+        if (AuthManager.isLoggedIn() && syncPending.compareAndSet(false, true)) {
+            syncExecutor.submit(() -> {
+                try {
+                    syncPending.set(false);
+                    String stateContent = new String(
+                            java.nio.file.Files.readAllBytes(
+                                    java.nio.file.Paths.get(
+                                            System.getProperty("user.dir") + java.io.File.separator + "state.json"
+                                    )
+                            )
+                    );
+                    FirestoreSync.push(
+                            AuthManager.getUserEmail(),
+                            AuthManager.getDeviceId(),
+                            stateContent
+                    );
+                } catch (Exception e) {
+                    syncPending.set(false);
+                    Logger.warn("[sync] Cloud sync failed: " + e.getClass().getSimpleName());
+                }
+            });
         }
     }
 }

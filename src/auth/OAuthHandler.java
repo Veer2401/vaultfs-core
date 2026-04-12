@@ -22,8 +22,8 @@ public class OAuthHandler {
 
     private static final String REDIRECT_BASE = "http://localhost:9000/callback";
 
-    /** Builds the Google OAuth authorization URL for browser redirect. */
-    public static String getGoogleAuthUrl() {
+    /** Builds the Google OAuth authorization URL for browser redirect with state for CSRF protection. */
+    public static String getGoogleAuthUrl(String state) {
         try {
             return GOOGLE_AUTH_URL
                 + "?client_id=" + URLEncoder.encode(OAuthConfig.googleClientId(), "UTF-8")
@@ -31,19 +31,21 @@ public class OAuthHandler {
                 + "&response_type=code"
                 + "&scope=" + URLEncoder.encode("openid email profile", "UTF-8")
                 + "&access_type=offline"
-                + "&prompt=select_account";
+                + "&prompt=select_account"
+                + "&state=" + URLEncoder.encode(state, "UTF-8");
         } catch (Exception e) {
             return GOOGLE_AUTH_URL;
         }
     }
 
-    /** Builds the GitHub OAuth authorization URL for browser redirect. */
-    public static String getGitHubAuthUrl() {
+    /** Builds the GitHub OAuth authorization URL for browser redirect with state for CSRF protection. */
+    public static String getGitHubAuthUrl(String state) {
         try {
             return GITHUB_AUTH_URL
                 + "?client_id=" + URLEncoder.encode(OAuthConfig.githubClientId(), "UTF-8")
                 + "&redirect_uri=" + URLEncoder.encode(REDIRECT_BASE + "/github", "UTF-8")
-                + "&scope=" + URLEncoder.encode("read:user user:email", "UTF-8");
+                + "&scope=" + URLEncoder.encode("read:user user:email", "UTF-8")
+                + "&state=" + URLEncoder.encode(state, "UTF-8");
         } catch (Exception e) {
             return GITHUB_AUTH_URL;
         }

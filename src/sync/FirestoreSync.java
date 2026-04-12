@@ -19,7 +19,23 @@ import utils.Logger;
 /** Pushes state snapshots to Firestore using Google OAuth service-account JWT flow. */
 public class FirestoreSync {
     private static final String PROJECT_ID = "vault-fs";
-    private static final String SERVICE_ACCOUNT_PATH = "D:\\projects\\personal-projects\\java\\File-System-Manager-Java\\serviceAccount.json";
+
+    /**
+     * Resolves the service account JSON path from, in order:
+     * 1. GOOGLE_APPLICATION_CREDENTIALS environment variable
+     * 2. .env GOOGLE_APPLICATION_CREDENTIALS key
+     * Returns null if neither is set.
+     */
+    private static String getServiceAccountPath() {
+        String path = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
+        if (path == null || path.isEmpty()) {
+            path = utils.EnvParser.get("GOOGLE_APPLICATION_CREDENTIALS", "");
+        }
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        return path;
+    }
 
     /** Pushes the latest serialized state document to the user/device Firestore location. */
     public static void push(String userEmail, String deviceId, String stateJson) {
@@ -35,7 +51,7 @@ public class FirestoreSync {
 
             String accessToken = getAccessToken();
             if (accessToken == null) {
-                Logger.warn("[sync] Auth failed - skipping push");
+                Logger.debug("[sync] Skipping push - no valid credentials");
                 return;
             }
 
@@ -51,7 +67,6 @@ public class FirestoreSync {
             int maxRetries = 3;
             for (int attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    Logger.debug("[sync] Push attempt " + attempt + " of " + maxRetries);
                     HttpURLConnection conn = (HttpURLConnection) URI.create(firestoreUrl).toURL().openConnection();
                     conn.setConnectTimeout(5000);
                     conn.setReadTimeout(5000);
@@ -72,28 +87,37 @@ public class FirestoreSync {
                     } else if (responseCode >= 500) {
                         throw new java.io.IOException("Server error: " + responseCode);
                     } else {
-                        Logger.error("[sync] Push failed: " + responseCode);
+                        Logger.warn("[sync] Push failed with status " + responseCode);
                         break;
                     }
                 } catch (Exception e) {
                     if (attempt == maxRetries) {
-                        Logger.error("[sync] Push error: " + e.getMessage());
+                        Logger.warn("[sync] Push failed after " + maxRetries + " attempts");
                     } else {
-                        Logger.debug("[sync] Retry scheduled after failure: " + e.getMessage());
                         Thread.sleep((long) Math.pow(2, attempt) * 1000); // Exponential backoff
                     }
                 }
             }
         } catch (Exception e) {
-            Logger.error("[sync] Push error: " + e.getMessage());
+            Logger.warn("[sync] Push skipped: " + e.getClass().getSimpleName());
         }
     }
 
     /** Creates a signed JWT and exchanges it for a Google OAuth access token. */
     private static String getAccessToken() {
         try {
+            String serviceAccountPath = getServiceAccountPath();
+            if (serviceAccountPath == null) {
+                return null;
+            }
+            java.io.File saFile = new java.io.File(serviceAccountPath);
+            if (!saFile.exists()) {
+                Logger.debug("[sync] Service account file not found");
+                return null;
+            }
+
             StringBuilder jsonBuilder = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(new java.io.FileInputStream(SERVICE_ACCOUNT_PATH), "UTF-8"))) {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(new java.io.FileInputStream(saFile), "UTF-8"))) {
                 String line;
                 while ((line = br.readLine()) != null) {
                     jsonBuilder.append(line);

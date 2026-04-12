@@ -119,7 +119,7 @@ public class AuthManager {
 
         try {
 
-            String sessionToken = UUID.randomUUID().toString();
+            final String sessionToken = UUID.randomUUID().toString();
 
             String authURL = "http://localhost:9000/login?session=" + sessionToken;
 
@@ -216,7 +216,7 @@ public class AuthManager {
                         os.close();
                         return;
                     }
-                    String url = OAuthHandler.getGoogleAuthUrl();
+                    String url = OAuthHandler.getGoogleAuthUrl(sessionToken);
                     exchange.getResponseHeaders().set("Location", url);
                     exchange.sendResponseHeaders(302, -1);
                     exchange.close();
@@ -236,7 +236,7 @@ public class AuthManager {
                         os.close();
                         return;
                     }
-                    String url = OAuthHandler.getGitHubAuthUrl();
+                    String url = OAuthHandler.getGitHubAuthUrl(sessionToken);
                     exchange.getResponseHeaders().set("Location", url);
                     exchange.sendResponseHeaders(302, -1);
                     exchange.close();
@@ -247,6 +247,13 @@ public class AuthManager {
             server.createContext("/callback/google", new HttpHandler() {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
+                    String state = extractQueryParam(exchange.getRequestURI().getQuery(), "state");
+                    if (state == null || !state.equals(sessionToken)) {
+                        serveError(exchange, "Invalid session. Please restart login.");
+                        exchange.close();
+                        return;
+                    }
+
                     String code = extractQueryParam(exchange.getRequestURI().getQuery(), "code");
                     String error = extractQueryParam(exchange.getRequestURI().getQuery(), "error");
 
@@ -273,6 +280,13 @@ public class AuthManager {
             server.createContext("/callback/github", new HttpHandler() {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
+                    String state = extractQueryParam(exchange.getRequestURI().getQuery(), "state");
+                    if (state == null || !state.equals(sessionToken)) {
+                        serveError(exchange, "Invalid session. Please restart login.");
+                        exchange.close();
+                        return;
+                    }
+
                     String code = extractQueryParam(exchange.getRequestURI().getQuery(), "code");
                     String error = extractQueryParam(exchange.getRequestURI().getQuery(), "error");
 

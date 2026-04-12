@@ -29,14 +29,9 @@ public class SearchService {
         }
     }
 
-    /** Formats bytes as B, KB, or MB text for top-k output. */
+    /** Formats bytes as B, KB, or MB text for top-k output.
+     *  Delegates to FileMetadata.formattedSize() to avoid duplication. */
     public String formatSize(long sizeBytes) {
-        if (sizeBytes < 1024) {
-            return sizeBytes + " B";
-        }
-        if (sizeBytes < 1_048_576) {
-            return String.format("%.1f KB", sizeBytes / 1024.0);
-        }
-        return String.format("%.1f MB", sizeBytes / 1_048_576.0);
+        return new FileMetadata("_", sizeBytes).formattedSize();
     }
 }
