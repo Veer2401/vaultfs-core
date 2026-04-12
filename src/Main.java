@@ -188,6 +188,10 @@ public class Main {
         printHelpRow("whoami", "Show account details");
         printHelpRow("clear", "Clear terminal");
         printHelpRow("exit", "Logout and exit program");
+        System.out.println("╠════════════════════════════════════════════════════════════╣");
+        printHelpRow("vaultfs --version", "Show installed version");
+        printHelpRow("vaultfs update", "Pull latest updates and rebuild");
+        printHelpRow("vaultfs doctor", "Run health checks on install");
         System.out.println("╚════════════════════════════════════════════════════════════╝");
     }
 
