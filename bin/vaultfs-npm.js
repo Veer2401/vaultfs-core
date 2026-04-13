@@ -137,7 +137,7 @@ if (!fs.existsSync(path.join(outDir, "Main.class"))) {
   process.exit(1);
 }
 
-const child = spawn("java", ["-cp", outDir, "Main", ...args], {
+const child = spawn("java", [`-Dvaultfs.home=${installDir}`, "-cp", outDir, "Main", ...args], {
   stdio: "inherit",
   cwd: installDir
 });

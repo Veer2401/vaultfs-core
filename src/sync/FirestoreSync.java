@@ -99,7 +99,13 @@ public class FirestoreSync {
                     if (attempt == maxRetries) {
                         Logger.warn("[sync] Push failed after " + maxRetries + " attempts");
                     } else {
-                        Thread.sleep((long) Math.pow(2, attempt) * 1000); // Exponential backoff
+                        try {
+                            Thread.sleep((long) Math.pow(2, attempt) * 1000); // Exponential backoff
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            Logger.warn("[sync] Push interrupted");
+                            break;
+                        }
                     }
                 }
             }
@@ -136,7 +142,9 @@ public class FirestoreSync {
                 return null;
             }
 
-            // Use char array for private key so we can zero it after use
+            // Best-effort zeroing: char array can be wiped, but intermediate String
+            // instances (strippedKey, jwt) remain in the JVM string pool until GC.
+            // For stronger guarantees, consider an HSM or vault-based signer.
             char[] privateKeyChars = privateKey.toCharArray();
             privateKey = null; // Release string reference
 

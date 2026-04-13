@@ -762,10 +762,13 @@ public class FileSystem {
             } else if (entry.isFile()) {
                 String filePath = diskService.normalizePath(entry.getAbsolutePath());
                 Integer existingBlockId = fileBlockIndex.get(filePath);
+                // If file is already tracked (even with -1 = disk full), skip re-allocation
+                int blockHint = existingBlockId != null ? existingBlockId : -1;
+                boolean alreadyTracked = fileBlockIndex.containsKey(filePath);
                 models.FileMetadata metadata = diskService.metadataFromDiskFile(
                         entry,
                         diskSimulator,
-                        existingBlockId != null ? existingBlockId : -1
+                        alreadyTracked ? Math.max(blockHint, 0) == blockHint ? blockHint : -2 : -1
                 );
                 diskFiles.add(metadata);
                 diskFilePaths.add(filePath);
@@ -858,7 +861,9 @@ public class FileSystem {
     }
 
     /** Allows plain names only so commands operate within current directory scope.
-     *  Rejects path separators, traversal patterns (..), null bytes, and empty/blank names. */
+     *  Rejects path separators, traversal patterns (..), null bytes, and empty/blank names.
+     *  Note: any name containing ".." is rejected, including "foo..bar", as a
+     *  defense-in-depth measure against path traversal after separator stripping. */
     private boolean isSimpleName(String name) {
         if (name == null || name.trim().isEmpty()) {
             return false;
@@ -869,8 +874,6 @@ public class FileSystem {
         if (".".equals(name) || "..".equals(name)) {
             return false;
         }
-        // Reject names that contain ".." as a substring (e.g. "foo..bar" is fine,
-        // but this catches edge cases with path separators stripped earlier)
         if (name.contains("..")) {
             return false;
         }
@@ -955,7 +958,6 @@ public class FileSystem {
         if (AuthManager.isLoggedIn() && syncPending.compareAndSet(false, true)) {
             syncExecutor.submit(() -> {
                 try {
-                    syncPending.set(false);
                     String stateContent = new String(
                             java.nio.file.Files.readAllBytes(
                                     java.nio.file.Paths.get(
@@ -969,8 +971,9 @@ public class FileSystem {
                             stateContent
                     );
                 } catch (Exception e) {
-                    syncPending.set(false);
                     Logger.warn("[sync] Cloud sync failed: " + e.getClass().getSimpleName());
+                } finally {
+                    syncPending.set(false);
                 }
             });
         }

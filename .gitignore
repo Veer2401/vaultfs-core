@@ -1,6 +1,7 @@
 # Runtime/output artifacts
 sandbox/
 state.json
+sources.txt
 
 # Attached project documentation files to ignore
 REPO.md

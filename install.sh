@@ -307,7 +307,7 @@ if [ "$1" = "doctor" ]; then
 fi
 
 # Default: launch the app
-java -cp "$INSTALL_DIR/out" Main "$@"
+java -Dvaultfs.home="$INSTALL_DIR" -cp "$INSTALL_DIR/out" Main "$@"
 LAUNCHER
 
 chmod +x "$INSTALL_DIR/bin/vaultfs"

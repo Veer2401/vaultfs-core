@@ -208,7 +208,7 @@ if not exist "%INSTALL_DIR%\bin" mkdir "%INSTALL_DIR%\bin"
     echo     exit /b 0
     echo ^
     echo.
-    echo java -cp "%%INSTALL_DIR%%\out" Main %%*
+    echo java -Dvaultfs.home="%%INSTALL_DIR%%" -cp "%%INSTALL_DIR%%\out" Main %%*
     echo endlocal
 ) > "%INSTALL_DIR%\bin\vaultfs.bat"
 

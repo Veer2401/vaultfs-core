@@ -234,12 +234,16 @@ public class AuthManager {
 
                     if (error != null || code == null) {
                         serveError(exchange, "Google authentication was cancelled or failed.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
                     String[] result = OAuthHandler.handleGoogleCallback(code);
                     if (result == null) {
                         serveError(exchange, "Failed to verify Google credentials. Please try again.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
@@ -268,12 +272,16 @@ public class AuthManager {
 
                     if (error != null || code == null) {
                         serveError(exchange, "GitHub authentication was cancelled or failed.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
                     String[] result = OAuthHandler.handleGitHubCallback(code);
                     if (result == null) {
                         serveError(exchange, "Failed to verify GitHub credentials. Please try again.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 

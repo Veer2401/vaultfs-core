@@ -39,6 +39,9 @@ public class DiskService {
 
         if (existingStartBlockId >= 0) {
             metadata.startBlockId = existingStartBlockId;
+        } else if (existingStartBlockId == -2) {
+            // Already tracked but disk was full — don't retry allocation
+            metadata.startBlockId = -1;
         } else if (metadata.startBlockId == -1) {
             metadata.startBlockId = diskSimulator.allocateFile(metadata.sizeBytes);
         }

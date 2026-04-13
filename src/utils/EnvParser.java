@@ -11,17 +11,38 @@ public class EnvParser {
     private static final Map<String, String> envMap = new HashMap<>();
 
     static {
-        loadEnvFile(System.getProperty("user.dir") + "/.env");
+        // Try user.dir first (development), then VAULTFS_HOME / -Dvaultfs.home (global install)
+        String userDir = System.getProperty("user.dir");
+        String envPath = userDir + "/.env";
+        if (!new java.io.File(envPath).exists()) {
+            String home = System.getProperty("vaultfs.home");
+            if (home == null || home.isEmpty()) {
+                home = System.getenv("VAULTFS_HOME");
+            }
+            if (home != null && !home.isEmpty()) {
+                envPath = home + "/.env";
+            }
+        }
+        loadEnvFile(envPath);
     }
 
     private static void loadEnvFile(String path) {
-        // Validate the .env path is within the project directory
+        // Validate the .env path is within an allowed base directory
         try {
             java.io.File envFile = new java.io.File(path);
             String canonicalEnv = envFile.getCanonicalPath();
             String canonicalBase = new java.io.File(System.getProperty("user.dir")).getCanonicalPath();
-            if (!canonicalEnv.startsWith(canonicalBase)) {
-                System.err.println("[EnvParser] Warning: .env path outside project directory, skipping");
+            boolean allowed = canonicalEnv.startsWith(canonicalBase);
+            if (!allowed) {
+                String home = System.getProperty("vaultfs.home");
+                if (home == null || home.isEmpty()) home = System.getenv("VAULTFS_HOME");
+                if (home != null && !home.isEmpty()) {
+                    String canonicalHome = new java.io.File(home).getCanonicalPath();
+                    allowed = canonicalEnv.startsWith(canonicalHome);
+                }
+            }
+            if (!allowed) {
+                System.err.println("[EnvParser] Warning: .env path outside allowed directories, skipping");
                 return;
             }
         } catch (IOException e) {
