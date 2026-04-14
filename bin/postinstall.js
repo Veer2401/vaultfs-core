@@ -1,138 +1,102 @@
 #!/usr/bin/env node
-const { execSync } = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-// ─── Colors ──────────────────────────────────────────────────
-const RESET = "\x1b[0m";
-const BOLD = "\x1b[1m";
-const RED = "\x1b[31m";
-const GREEN = "\x1b[32m";
-const CYAN = "\x1b[36m";
-const DIM = "\x1b[2m";
+const isWin = process.platform === 'win32';
+const npmCmd = isWin ? 'npm.cmd' : 'npm';
+const installDir = path.join(os.homedir(), '.vaultfs');
+const frontendDir = path.join(installDir, 'frontend');
 
-function success(msg) { console.log(`  ${GREEN}✓${RESET} ${msg}`); }
-function error(msg) { console.log(`  ${RED}✗${RESET} ${msg}`); }
-function info(msg) { console.log(`  ${CYAN}→${RESET} ${msg}`); }
-
-// ─── Banner ──────────────────────────────────────────────────
-console.log("");
-console.log(`${CYAN}${BOLD}  ╔══════════════════════════════════════════════╗${RESET}`);
-console.log(`${CYAN}${BOLD}  ║                                              ║${RESET}`);
-console.log(`${CYAN}${BOLD}  ║   ${GREEN}▓▓ VaultFS — Running post-install setup${CYAN}   ║${RESET}`);
-console.log(`${CYAN}${BOLD}  ║                                              ║${RESET}`);
-console.log(`${CYAN}${BOLD}  ╚══════════════════════════════════════════════╝${RESET}`);
-console.log("");
+console.log('\n  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557');
+console.log('  \u2551   VaultFS \u2014 Running post-install setup       \u2551');
+console.log('  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D\n');
 
 try {
-  // ─── Detect OS ─────────────────────────────────────────────
-  const platform = process.platform; // win32, darwin, linux
-  const platformName =
-    platform === "win32" ? "Windows" :
-    platform === "darwin" ? "macOS" : "Linux";
-  success(`OS detected: ${BOLD}${platformName}${RESET}`);
+    // Step 1 — Detect OS
+    const os_name = isWin ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+    console.log(`  \u2713 OS detected: ${os_name}`);
 
-  // ─── Check Java 11+ ───────────────────────────────────────
-  let javaVersion;
-  try {
-    const javaOut = execSync("java -version 2>&1", { encoding: "utf8" });
-    const match = javaOut.match(/"(\d+)/);
-    javaVersion = match ? parseInt(match[1], 10) : 0;
-  } catch {
-    javaVersion = 0;
-  }
-
-  if (javaVersion < 11) {
-    error(`${RED}Java 11+ is required${javaVersion > 0 ? ` (found Java ${javaVersion})` : " (not found)"}.${RESET}`);
-    console.log("");
-    console.log(`  Download Java from: ${CYAN}https://adoptium.net${RESET}`);
-    console.log("");
-    process.exit(1);
-  }
-  success(`Java ${BOLD}${javaVersion}${RESET} found`);
-
-  // ─── Install directory ─────────────────────────────────────
-  const installDir = path.join(os.homedir(), ".vaultfs");
-
-  if (fs.existsSync(installDir) && fs.existsSync(path.join(installDir, "out", "Main.class"))) {
-    info("Already installed, skipping build.");
-    console.log("");
-    console.log(`  ${GREEN}${BOLD}✅ VaultFS is ready!${RESET} Type ${CYAN}vaultfs${RESET} to launch.`);
-    console.log("");
-    process.exit(0);
-  }
-
-  // ─── Copy package contents into install dir ────────────────
-  info(`Setting up ${DIM}${installDir}${RESET}...`);
-
-  if (!fs.existsSync(installDir)) {
-    fs.mkdirSync(installDir, { recursive: true });
-  }
-
-  // Resolve the package root (one level up from bin/)
-  const pkgRoot = path.resolve(__dirname, "..");
-
-  const toCopy = ["src", "frontend", "version.txt", ".env.example"];
-  for (const item of toCopy) {
-    const src = path.join(pkgRoot, item);
-    const dest = path.join(installDir, item);
-    if (!fs.existsSync(src)) continue;
-
-    const stat = fs.statSync(src);
-    if (stat.isDirectory()) {
-      fs.cpSync(src, dest, { recursive: true, force: true });
-    } else {
-      // Ensure parent dir exists
-      const parent = path.dirname(dest);
-      if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
-      fs.copyFileSync(src, dest);
+    // Step 2 — Check Java
+    try {
+        const javaVersion = execSync('java -version 2>&1', { shell: true }).toString();
+        console.log(`  \u2713 Java found`);
+    } catch (e) {
+        console.error('  \u2717 Java 11+ is required. Download from: https://adoptium.net');
+        process.exit(1);
     }
-  }
-  success("Source files copied");
 
-  // ─── Platform-aware commands ───────────────────────────────
-  const npmCmd = platform === "win32" ? "npm.cmd" : "npm";
-  const npxCmd = platform === "win32" ? "npx.cmd" : "npx";
+    // Step 3 — Copy files to ~/.vaultfs
+    console.log(`  \u2192 Setting up ${installDir}...`);
+    if (!fs.existsSync(installDir)) {
+        fs.mkdirSync(installDir, { recursive: true });
+    }
 
-  // ─── Build frontend ────────────────────────────────────────
-  info("Installing frontend dependencies...");
-  const frontendDir = path.join(installDir, "frontend");
-  execSync(`${npmCmd} install --prefer-offline`, {
-    cwd: frontendDir,
-    stdio: "inherit",
-    shell: true
-  });
-  success("Dependencies installed");
+    const pkgDir = path.join(__dirname, '..');
+    const itemsToCopy = ['src', 'frontend', 'version.txt', '.env.example'];
+    for (const item of itemsToCopy) {
+        const src = path.join(pkgDir, item);
+        const dest = path.join(installDir, item);
+        if (fs.existsSync(src)) {
+            if (fs.existsSync(dest)) {
+                fs.rmSync(dest, { recursive: true, force: true });
+            }
+            fs.cpSync(src, dest, { recursive: true });
+        }
+    }
+    console.log('  \u2713 Source files copied');
 
-  info("Building React app...");
-  const viteBin = path.join(frontendDir, "node_modules", ".bin", "vite");
-  execSync(`"${viteBin}" build`, {
-    cwd: frontendDir,
-    stdio: "inherit",
-    shell: true
-  });
-  success("React app built");
+    // Step 4 — Create .env if missing
+    const envFile = path.join(installDir, '.env');
+    const envExample = path.join(installDir, '.env.example');
+    if (!fs.existsSync(envFile) && fs.existsSync(envExample)) {
+        fs.copyFileSync(envExample, envFile);
+    }
 
-  // ─── Compile Java ──────────────────────────────────────────
-  info("Compiling Java sources...");
-  execSync("javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/auth/*.java src/sync/*.java src/filesystem/*.java src/Main.java", {
-    cwd: installDir,
-    stdio: "inherit",
-    shell: true
-  });
-  success("All sources compiled");
+    // Step 5 — Clean and install frontend dependencies
+    console.log('  \u2192 Installing frontend dependencies...');
+    const frontendModules = path.join(frontendDir, 'node_modules');
+    if (fs.existsSync(frontendModules)) {
+        fs.rmSync(frontendModules, { recursive: true, force: true });
+        console.log('  \u2713 Cleaned old modules');
+    }
+    execSync(`${npmCmd} install`, {
+        cwd: frontendDir,
+        stdio: 'inherit',
+        shell: true
+    });
+    console.log('  \u2713 Dependencies installed');
 
-  // ─── Done ──────────────────────────────────────────────────
-  console.log("");
-  console.log(`  ${GREEN}${BOLD}✅ VaultFS is ready!${RESET} Type ${CYAN}vaultfs${RESET} to launch.`);
-  console.log("");
+    // Step 6 — Build frontend using local vite binary
+    console.log('  \u2192 Building React app...');
+    const viteBin = path.join(frontendDir, 'node_modules', '.bin', isWin ? 'vite.cmd' : 'vite');
+    if (!fs.existsSync(viteBin)) {
+        throw new Error(`Vite binary not found at: ${viteBin}`);
+    }
+    execSync(`"${viteBin}" build`, {
+        cwd: frontendDir,
+        stdio: 'inherit',
+        shell: true
+    });
+    console.log('  \u2713 React app built');
+
+    // Step 7 — Compile Java
+    console.log('  \u2192 Compiling Java sources...');
+    const outDir = path.join(installDir, 'out');
+    if (!fs.existsSync(outDir)) {
+        fs.mkdirSync(outDir, { recursive: true });
+    }
+    execSync(
+        'javac -d out src/models/*.java src/datastructures/*.java src/utils/*.java src/auth/*.java src/sync/*.java src/filesystem/*.java src/Main.java',
+        { cwd: installDir, stdio: 'inherit', shell: true }
+    );
+    console.log('  \u2713 Java compiled');
+
+    console.log('\n  \u2705 VaultFS is ready! Type vaultfs to launch.\n');
 
 } catch (err) {
-  console.log("");
-  error(`${RED}Post-install failed: ${err.message}${RESET}`);
-  console.log("");
-  console.log(`  Run ${CYAN}vaultfs doctor${RESET} to diagnose the issue.`);
-  console.log("");
-  process.exit(1);
+    console.error(`\n  \u2717 Post-install failed: ${err.message}`);
+    console.error('  Run vaultfs doctor to diagnose the issue.\n');
+    process.exit(1);
 }
