@@ -5,9 +5,7 @@ const path = require('path');
 const os = require('os');
 
 const isWin = process.platform === 'win32';
-const npmCmd = isWin ? 'npm.cmd' : 'npm';
 const installDir = path.join(os.homedir(), '.vaultfs');
-const frontendDir = path.join(installDir, 'frontend');
 
 console.log('\n  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557');
 console.log('  \u2551   VaultFS \u2014 Running post-install setup       \u2551');
@@ -18,12 +16,13 @@ try {
     const os_name = isWin ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
     console.log(`  \u2713 OS detected: ${os_name}`);
 
-    // Step 2 — Check Java
+    // Step 2 — Check Java 11+
     try {
-        const javaVersion = execSync('java -version 2>&1', { shell: true }).toString();
-        console.log(`  \u2713 Java found`);
+        execSync('java -version 2>&1', { shell: true });
+        console.log('  \u2713 Java found');
     } catch (e) {
-        console.error('  \u2717 Java 11+ is required. Download from: https://adoptium.net');
+        console.error('  \u2717 Java 11+ is required.');
+        console.error('  Download from: https://adoptium.net');
         process.exit(1);
     }
 
@@ -54,34 +53,15 @@ try {
         fs.copyFileSync(envExample, envFile);
     }
 
-    // Step 5 — Clean and install frontend dependencies
-    console.log('  \u2192 Installing frontend dependencies...');
-    const frontendModules = path.join(frontendDir, 'node_modules');
-    if (fs.existsSync(frontendModules)) {
-        fs.rmSync(frontendModules, { recursive: true, force: true });
-        console.log('  \u2713 Cleaned old modules');
+    // Step 5 — Verify pre-built frontend dist exists
+    const distDir = path.join(installDir, 'frontend', 'dist');
+    if (fs.existsSync(distDir)) {
+        console.log('  \u2713 Frontend ready (pre-built)');
+    } else {
+        console.log('  \u26A0 Frontend dist not found - login UI may not work');
     }
-    execSync(`${npmCmd} install`, {
-        cwd: frontendDir,
-        stdio: 'inherit',
-        shell: true
-    });
-    console.log('  \u2713 Dependencies installed');
 
-    // Step 6 — Build frontend using local vite binary
-    console.log('  \u2192 Building React app...');
-    const viteBin = path.join(frontendDir, 'node_modules', '.bin', isWin ? 'vite.cmd' : 'vite');
-    if (!fs.existsSync(viteBin)) {
-        throw new Error(`Vite binary not found at: ${viteBin}`);
-    }
-    execSync(`"${viteBin}" build`, {
-        cwd: frontendDir,
-        stdio: 'inherit',
-        shell: true
-    });
-    console.log('  \u2713 React app built');
-
-    // Step 7 — Compile Java
+    // Step 6 — Compile Java
     console.log('  \u2192 Compiling Java sources...');
     const outDir = path.join(installDir, 'out');
     if (!fs.existsSync(outDir)) {
