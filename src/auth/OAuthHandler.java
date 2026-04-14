@@ -1,12 +1,14 @@
 package auth;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import utils.Logger;
 
 /** Handles OAuth 2.0 authorization code exchange and user info retrieval for Google and GitHub. */
 public class OAuthHandler {
@@ -21,9 +23,11 @@ public class OAuthHandler {
     private static final String GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
 
     private static final String REDIRECT_BASE = "http://localhost:9000/callback";
+    private static final int HTTP_TIMEOUT_MS = 10_000;
+    private static final int MAX_RESPONSE_BYTES = 1_048_576; // 1 MB
 
-    /** Builds the Google OAuth authorization URL for browser redirect. */
-    public static String getGoogleAuthUrl() {
+    /** Builds the Google OAuth authorization URL for browser redirect with state for CSRF protection. */
+    public static String getGoogleAuthUrl(String state) {
         try {
             return GOOGLE_AUTH_URL
                 + "?client_id=" + URLEncoder.encode(OAuthConfig.googleClientId(), "UTF-8")
@@ -31,20 +35,24 @@ public class OAuthHandler {
                 + "&response_type=code"
                 + "&scope=" + URLEncoder.encode("openid email profile", "UTF-8")
                 + "&access_type=offline"
-                + "&prompt=select_account";
+                + "&prompt=select_account"
+                + "&state=" + URLEncoder.encode(state, "UTF-8");
         } catch (Exception e) {
+            Logger.warn("[oauth] Failed to build Google auth URL: " + e.getMessage());
             return GOOGLE_AUTH_URL;
         }
     }
 
-    /** Builds the GitHub OAuth authorization URL for browser redirect. */
-    public static String getGitHubAuthUrl() {
+    /** Builds the GitHub OAuth authorization URL for browser redirect with state for CSRF protection. */
+    public static String getGitHubAuthUrl(String state) {
         try {
             return GITHUB_AUTH_URL
                 + "?client_id=" + URLEncoder.encode(OAuthConfig.githubClientId(), "UTF-8")
                 + "&redirect_uri=" + URLEncoder.encode(REDIRECT_BASE + "/github", "UTF-8")
-                + "&scope=" + URLEncoder.encode("read:user user:email", "UTF-8");
+                + "&scope=" + URLEncoder.encode("read:user user:email", "UTF-8")
+                + "&state=" + URLEncoder.encode(state, "UTF-8");
         } catch (Exception e) {
+            Logger.warn("[oauth] Failed to build GitHub auth URL: " + e.getMessage());
             return GITHUB_AUTH_URL;
         }
     }
@@ -81,11 +89,13 @@ public class OAuthHandler {
                 name = email != null ? email.split("@")[0] : "Google User";
             }
             if (email == null || email.isEmpty()) {
-                email = "unknown@gmail.com";
+                Logger.warn("[oauth] Google login succeeded but email could not be retrieved");
+                return null;
             }
 
             return new String[] { name, email, accessToken };
         } catch (Exception e) {
+            Logger.warn("[oauth] Google callback failed: " + e.getClass().getSimpleName());
             return null;
         }
     }
@@ -125,15 +135,17 @@ public class OAuthHandler {
                     String emailsJson = httpGet(GITHUB_EMAILS_URL, "Bearer " + accessToken);
                     email = extractPrimaryEmail(emailsJson);
                 } catch (Exception e) {
-                    // fallback
+                    Logger.debug("[oauth] Failed to fetch GitHub emails: " + e.getClass().getSimpleName());
                 }
             }
             if (email == null || email.isEmpty() || "null".equals(email)) {
-                email = (login != null ? login : "user") + "@github.com";
+                Logger.warn("[oauth] GitHub login succeeded but email could not be retrieved");
+                return null;
             }
 
             return new String[] { name, email, accessToken };
         } catch (Exception e) {
+            Logger.warn("[oauth] GitHub callback failed: " + e.getClass().getSimpleName());
             return null;
         }
     }
@@ -147,8 +159,8 @@ public class OAuthHandler {
         if (accept != null) {
             conn.setRequestProperty("Accept", accept);
         }
-        conn.setConnectTimeout(10000);
-        conn.setReadTimeout(10000);
+        conn.setConnectTimeout(HTTP_TIMEOUT_MS);
+        conn.setReadTimeout(HTTP_TIMEOUT_MS);
 
         try (OutputStream os = conn.getOutputStream()) {
             os.write(body.getBytes(StandardCharsets.UTF_8));
@@ -164,13 +176,13 @@ public class OAuthHandler {
         conn.setRequestProperty("Authorization", authHeader);
         conn.setRequestProperty("Accept", "application/json");
         conn.setRequestProperty("User-Agent", "VaultFS-CLI");
-        conn.setConnectTimeout(10000);
-        conn.setReadTimeout(10000);
+        conn.setConnectTimeout(HTTP_TIMEOUT_MS);
+        conn.setReadTimeout(HTTP_TIMEOUT_MS);
 
         return readResponse(conn);
     }
 
-    /** Reads the full response body from an HttpURLConnection. */
+    /** Reads the response body from an HttpURLConnection with a size limit. */
     private static String readResponse(HttpURLConnection conn) throws Exception {
         BufferedReader reader;
         if (conn.getResponseCode() >= 200 && conn.getResponseCode() < 300) {
@@ -179,18 +191,22 @@ public class OAuthHandler {
             reader = new BufferedReader(new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8));
         }
         StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            sb.append(line);
+        char[] buf = new char[4096];
+        int charsRead;
+        int totalChars = 0;
+        while ((charsRead = reader.read(buf)) != -1) {
+            totalChars += charsRead;
+            if (totalChars > MAX_RESPONSE_BYTES) {
+                reader.close();
+                throw new IOException("Response exceeded maximum size of " + MAX_RESPONSE_BYTES + " bytes");
+            }
+            sb.append(buf, 0, charsRead);
         }
         reader.close();
         return sb.toString();
     }
 
-    /**
-     * Extracts a string value from a JSON object by key.
-     * Simple parser — works for flat JSON responses from OAuth APIs.
-     */
+    /** Extracts a string value from a flat JSON object by key. Package-private. */
     static String extractJsonValue(String json, String key) {
         if (json == null) return null;
         String search = "\"" + key + "\"";

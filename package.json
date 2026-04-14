@@ -1,0 +1,34 @@
+{
+  "name": "vaultfs",
+  "version": "1.0.2",
+  "description": "A CLI-based secure file system simulator with OAuth 2.0 authentication and advanced data structures",
+  "bin": {
+    "vaultfs": "bin/vaultfs-npm.js"
+  },
+  "scripts": {
+    "postinstall": "node ./bin/postinstall.js"
+  },
+  "keywords": [
+    "cli",
+    "filesystem",
+    "oauth",
+    "java",
+    "security",
+    "data-structures"
+  ],
+  "author": "ThreatGuardian",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "frontend/",
+    "version.txt",
+    ".env.example",
+    "install.sh",
+    "install.bat",
+    "uninstall.sh"
+  ]
+}

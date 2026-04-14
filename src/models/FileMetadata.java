@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Represents metadata for a single file.
+ * Now includes the starting block ID for DiskSimulator fragmentation.
  */
 public class FileMetadata {
     public String filename;
@@ -12,6 +13,7 @@ public class FileMetadata {
     public LocalDateTime createdAt;
     public LocalDateTime modifiedAt;
     public String type;
+    public int startBlockId; // Used by DiskSimulator to trace file fragments
 
     /**
      * Initializes file metadata fields from name and size.
@@ -21,13 +23,16 @@ public class FileMetadata {
         this.sizeBytes = sizeBytes;
         this.createdAt = LocalDateTime.now();
         this.modifiedAt = LocalDateTime.now();
+        this.type = getExtension(filename);
+        this.startBlockId = -1; // Default to unallocated
+    }
 
-        int dotIndex = filename.lastIndexOf('.');
-        if (dotIndex >= 0 && dotIndex < filename.length() - 1) {
-            this.type = filename.substring(dotIndex + 1);
-        } else {
-            this.type = "file";
+    private String getExtension(String name) {
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot > 0 && lastDot < name.length() - 1) {
+            return name.substring(lastDot + 1).toLowerCase();
         }
+        return "unknown";
     }
 
     /**

@@ -16,7 +16,7 @@ export default function App() {
       const result = await signInWithPopup(auth, googleProvider)
       const user = result.user
 
-      // Keep existing backend flow by finishing login through local callback.
+      // Firebase popup succeeded — redirect to local server callback to persist the session.
       if (user) {
         window.location.href = '/callback'
         return

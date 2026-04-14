@@ -1,74 +1,96 @@
 package datastructures;
 
-import java.util.LinkedList;
+import java.util.HashMap;
+import java.util.Map;
 import models.FileNode;
 import utils.Colors;
 
 /**
  * Manages directory hierarchy operations over a FileNode tree.
+ * Implements HashMap for O(1) directory lookups and BST for O(log n) file searches.
  */
 public class DirectoryTree {
     private FileNode root;
+    private Map<String, FileNode> pathLookup;
+    private BinarySearchTree globalSearchBst;
 
     /**
      * Creates the root directory node using the provided sandbox path.
      */
     public DirectoryTree(String sandboxPath) {
         this.root = new FileNode("/", sandboxPath, null);
+        this.pathLookup = new HashMap<>();
+        this.globalSearchBst = new BinarySearchTree();
+        
+        pathLookup.put(sandboxPath, this.root);
+        globalSearchBst.insert("/", sandboxPath);
     }
 
-    /**
-     * Returns the root directory node.
-     */
     public FileNode getRoot() {
         return root;
     }
 
+    public BinarySearchTree getGlobalSearchBst() {
+        return globalSearchBst;
+    }
+
+    /** Creates and inserts a new directory node. */
+    public FileNode insertDirectory(FileNode parent, String name, String absolutePath) {
+        FileNode newDir = new FileNode(name, absolutePath, parent);
+        parent.children.add(newDir);
+        pathLookup.put(absolutePath, newDir);
+        globalSearchBst.insert(name, absolutePath);
+        return newDir;
+    }
+
+    /** Tracks a file inside the global BST. */
+    public void trackFile(String name, String absolutePath) {
+        globalSearchBst.insert(name, absolutePath);
+    }
+
+    /** Untracks a file from the global BST. */
+    public void untrackFile(String name, String absolutePath) {
+        globalSearchBst.remove(name, absolutePath);
+    }
+
+    /** Removes a directory node from the tree and lookup map. */
+    public void removeDirectory(FileNode node) {
+        if (node == root || node == null) return;
+        
+        // Remove all children recursively from lookups
+        removeLookupsRecursive(node);
+        
+        // Remove from parent
+        if (node.parent != null) {
+            node.parent.children.remove(node);
+        }
+    }
+
+    private void removeLookupsRecursive(FileNode node) {
+        pathLookup.remove(node.absolutePath);
+        globalSearchBst.remove(node.name, node.absolutePath);
+        
+        // Remove all files in this directory from the BST
+        if (node.files != null) {
+            for (models.FileMetadata file : node.files.getAll()) {
+                globalSearchBst.remove(file.filename, node.absolutePath + java.io.File.separator + file.filename);
+            }
+        }
+        
+        // Recurse for child directories
+        for (FileNode child : node.children) {
+            removeLookupsRecursive(child);
+        }
+    }
+
     /**
-     * Finds a directory node by absolute path using BFS traversal.
+     * Finds a directory node by absolute path. Uses O(1) HashMap lookup.
      */
     public FileNode findNode(String absolutePath) {
         if (absolutePath == null) {
             return null;
         }
-
-        LinkedList<FileNode> queue = new LinkedList<>();
-        queue.add(root);
-
-        while (!queue.isEmpty()) {
-            FileNode current = queue.poll();
-            if (current.absolutePath.equals(absolutePath)) {
-                return current;
-            }
-
-            for (FileNode child : current.children) {
-                queue.add(child);
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Creates and attaches a new child directory under the parent.
-     */
-    public FileNode insertDirectory(FileNode parent, String name, String absolutePath) {
-        FileNode newNode = new FileNode(name, absolutePath, parent);
-        parent.addChild(newNode);
-        return newNode;
-    }
-
-    /**
-     * Removes a directory node from its parent unless it is the root.
-     */
-    public boolean removeDirectory(FileNode node) {
-        if (node.parent == null) {
-            System.out.println("Cannot remove root");
-            return false;
-        }
-
-        node.parent.removeChild(node);
-        return true;
+        return pathLookup.get(absolutePath);
     }
 
     /**

@@ -18,6 +18,8 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import utils.Colors;
 
@@ -119,40 +121,13 @@ public class AuthManager {
 
         try {
 
-            String sessionToken = UUID.randomUUID().toString();
+            final String sessionToken = UUID.randomUUID().toString();
 
             String authURL = "http://localhost:9000/login?session=" + sessionToken;
 
 
 
-            System.out.println(Colors.c(Colors.WHITE, "Opening browser for authentication..."));
-
-            System.out.println(Colors.c(Colors.GRAY, "→ " + authURL));
-
-
-
-            String os = System.getProperty("os.name").toLowerCase();
-
-            if (os.contains("win")) {
-
-                Runtime.getRuntime().exec(new String[] {"cmd", "/c", "start", authURL});
-
-            } else if (os.contains("mac")) {
-
-                Runtime.getRuntime().exec(new String[] {"open", authURL});
-
-            } else {
-
-                Runtime.getRuntime().exec(new String[] {"xdg-open", authURL});
-
-            }
-
-
-
-            System.out.println(Colors.c(Colors.GRAY, "Waiting for authentication... (timeout: 120s)"));
-
-
-
+            final CountDownLatch loginLatch = new CountDownLatch(1);
             final HttpServer server = HttpServer.create(new InetSocketAddress(9000), 0);
 
             
@@ -208,7 +183,7 @@ public class AuthManager {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
                     if (!OAuthConfig.isGoogleConfigured()) {
-                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>Google OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set google.client.id and google.client.secret in oauth.properties</p></div></div></body></html>";
+                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>Google OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env</p></div></div></body></html>";
                         exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
                         exchange.sendResponseHeaders(200, msg.getBytes("UTF-8").length);
                         OutputStream os = exchange.getResponseBody();
@@ -216,7 +191,7 @@ public class AuthManager {
                         os.close();
                         return;
                     }
-                    String url = OAuthHandler.getGoogleAuthUrl();
+                    String url = OAuthHandler.getGoogleAuthUrl(sessionToken);
                     exchange.getResponseHeaders().set("Location", url);
                     exchange.sendResponseHeaders(302, -1);
                     exchange.close();
@@ -228,7 +203,7 @@ public class AuthManager {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
                     if (!OAuthConfig.isGitHubConfigured()) {
-                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>GitHub OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set github.client.id and github.client.secret in oauth.properties</p></div></div></body></html>";
+                        String msg = "<html><body style='font-family:sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h2>GitHub OAuth not configured</h2><p style='color:#86868b;margin-top:12px'>Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env</p></div></div></body></html>";
                         exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
                         exchange.sendResponseHeaders(200, msg.getBytes("UTF-8").length);
                         OutputStream os = exchange.getResponseBody();
@@ -236,7 +211,7 @@ public class AuthManager {
                         os.close();
                         return;
                     }
-                    String url = OAuthHandler.getGitHubAuthUrl();
+                    String url = OAuthHandler.getGitHubAuthUrl(sessionToken);
                     exchange.getResponseHeaders().set("Location", url);
                     exchange.sendResponseHeaders(302, -1);
                     exchange.close();
@@ -247,17 +222,28 @@ public class AuthManager {
             server.createContext("/callback/google", new HttpHandler() {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
+                    String state = extractQueryParam(exchange.getRequestURI().getQuery(), "state");
+                    if (state == null || !state.equals(sessionToken)) {
+                        serveError(exchange, "Invalid session. Please restart login.");
+                        exchange.close();
+                        return;
+                    }
+
                     String code = extractQueryParam(exchange.getRequestURI().getQuery(), "code");
                     String error = extractQueryParam(exchange.getRequestURI().getQuery(), "error");
 
                     if (error != null || code == null) {
                         serveError(exchange, "Google authentication was cancelled or failed.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
                     String[] result = OAuthHandler.handleGoogleCallback(code);
                     if (result == null) {
                         serveError(exchange, "Failed to verify Google credentials. Please try again.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
@@ -265,6 +251,7 @@ public class AuthManager {
                     serveSuccess(exchange, result[0]);
                     System.out.println(Colors.c(Colors.GREEN, "✓") + " Logged in via Google as "
                         + Colors.c(Colors.YELLOW, result[0]) + " (" + result[1] + ")");
+                    loginLatch.countDown();
                     server.stop(0);
                 }
             });
@@ -273,17 +260,28 @@ public class AuthManager {
             server.createContext("/callback/github", new HttpHandler() {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
+                    String state = extractQueryParam(exchange.getRequestURI().getQuery(), "state");
+                    if (state == null || !state.equals(sessionToken)) {
+                        serveError(exchange, "Invalid session. Please restart login.");
+                        exchange.close();
+                        return;
+                    }
+
                     String code = extractQueryParam(exchange.getRequestURI().getQuery(), "code");
                     String error = extractQueryParam(exchange.getRequestURI().getQuery(), "error");
 
                     if (error != null || code == null) {
                         serveError(exchange, "GitHub authentication was cancelled or failed.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
                     String[] result = OAuthHandler.handleGitHubCallback(code);
                     if (result == null) {
                         serveError(exchange, "Failed to verify GitHub credentials. Please try again.");
+                        loginLatch.countDown();
+                        server.stop(0);
                         return;
                     }
 
@@ -291,6 +289,7 @@ public class AuthManager {
                     serveSuccess(exchange, result[0]);
                     System.out.println(Colors.c(Colors.GREEN, "✓") + " Logged in via GitHub as "
                         + Colors.c(Colors.YELLOW, result[0]) + " (" + result[1] + ")");
+                    loginLatch.countDown();
                     server.stop(0);
                 }
             });
@@ -299,39 +298,53 @@ public class AuthManager {
             server.createContext("/callback", new HttpHandler() {
                 @Override
                 public void handle(HttpExchange exchange) throws IOException {
-                    persistLogin("guest-token", "guest@local", "Guest");
+                    persistLogin(UUID.randomUUID().toString(), "guest@local", "Guest");
                     serveSuccess(exchange, "Guest");
                     System.out.println(Colors.c(Colors.GREEN, "✓") + " Logged in as " + Colors.c(Colors.YELLOW, "Guest"));
+                    loginLatch.countDown();
                     server.stop(0);
                 }
             });
 
             server.setExecutor(null);
-
             server.start();
 
+            // Print styled login URL box
+            System.out.println();
+            System.out.println(Colors.c(Colors.CYAN, "  ╔══════════════════════════════════════════╗"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║       VaultFS — Login Required           ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║                                          ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║  Opening browser at:                     ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║  http://localhost:9000                   ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║                                          ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║  If browser doesn't open, visit the      ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ║  URL above manually.                     ║"));
+            System.out.println(Colors.c(Colors.CYAN, "  ╚══════════════════════════════════════════╝"));
+            System.out.println();
 
+            // Open browser (cross-platform)
+            openBrowser(authURL);
 
-            for (int i = 0; i < 120; i++) {
+            // Wait up to 120 seconds with periodic progress
+            System.out.println(Colors.c(Colors.GRAY, "\uD83D\uDD10 Waiting for login... (120s timeout)"));
+            System.out.println(Colors.c(Colors.GRAY, "\uD83D\uDC49 If browser didn't open, visit: http://localhost:9000"));
+            System.out.println();
 
-                Thread.sleep(1000);
-
-                if (isLoggedIn()) {
-
+            boolean completed = false;
+            for (int waited = 0; waited < 120; waited++) {
+                if (loginLatch.await(1, TimeUnit.SECONDS)) {
+                    completed = true;
                     break;
-
                 }
-
+                if ((waited + 1) % 10 == 0) {
+                    System.out.println(Colors.c(Colors.GRAY, "   Still waiting... (" + (120 - waited - 1) + "s remaining)"));
+                }
             }
 
-
-
-            if (!isLoggedIn()) {
-
-                System.out.println(Colors.c(Colors.RED, "Login timeout. Please try again."));
-
+            if (!completed && !isLoggedIn()) {
+                System.out.println(Colors.c(Colors.YELLOW, "\u26A0\uFE0F  Login timed out. Continuing as Guest."));
+                persistLogin(UUID.randomUUID().toString(), "guest@local", "Guest");
                 server.stop(0);
-
             }
 
         } catch (Exception e) {
@@ -340,6 +353,36 @@ public class AuthManager {
 
         }
 
+    }
+
+    /** Opens a URL in the default browser using platform-specific commands. */
+    private static void openBrowser(String url) {
+        String os = System.getProperty("os.name").toLowerCase();
+        Runtime rt = Runtime.getRuntime();
+        try {
+            if (os.contains("win")) {
+                rt.exec(new String[]{"rundll32", "url.dll,FileProtocolHandler", url});
+            } else if (os.contains("mac")) {
+                rt.exec(new String[]{"open", url});
+            } else {
+                // Linux/WSL
+                String[] browsers = {"xdg-open", "firefox", "google-chrome", "chromium-browser"};
+                boolean opened = false;
+                for (String browser : browsers) {
+                    try {
+                        rt.exec(new String[]{browser, url});
+                        opened = true;
+                        break;
+                    } catch (Exception ignored) {}
+                }
+                if (!opened) {
+                    System.out.println("Please open this URL manually: " + url);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Could not open browser automatically.");
+            System.out.println("Please open this URL manually: " + url);
+        }
     }
 
 
@@ -361,65 +404,16 @@ public class AuthManager {
 
 
     /** Prints formatted account details when logged in. */
-
     public static void whoami() {
-
         if (!isLoggedIn()) {
-
             System.out.println(Colors.c(Colors.RED, "Not logged in."));
-
             return;
-
         }
-
-
-
-        String email = getUserEmail();
-
-        String deviceId = getDeviceId();
-
-
-
-        String borderTop = "┌─────────────────────────────────────┐";
-
-        String borderMid = "├─────────────────────────────────────┤";
-
-        String borderBottom = "└─────────────────────────────────────┘";
-
-
-
-        System.out.println(Colors.c(Colors.GRAY, borderTop));
-
-        System.out.println(Colors.c(Colors.GRAY, "│") + "         Account Details             " + Colors.c(Colors.GRAY, "│"));
-
-        System.out.println(Colors.c(Colors.GRAY, borderMid));
-
-        System.out.println(Colors.c(Colors.GRAY, "│") + " "
-
-                + Colors.c(Colors.GRAY, "Email") + "     : "
-
-                + Colors.c(Colors.YELLOW, email)
-
-                + "          " + Colors.c(Colors.GRAY, "│"));
-
-        System.out.println(Colors.c(Colors.GRAY, "│") + " "
-
-                + Colors.c(Colors.GRAY, "Device ID") + " : "
-
-                + Colors.c(Colors.CYAN, deviceId)
-
-                + "             " + Colors.c(Colors.GRAY, "│"));
-
-        System.out.println(Colors.c(Colors.GRAY, "│") + " "
-
-                + Colors.c(Colors.GRAY, "Status") + "    : "
-
-                + Colors.c(Colors.GREEN, "● Online")
-
-                + "                " + Colors.c(Colors.GRAY, "│"));
-
-        System.out.println(Colors.c(Colors.GRAY, borderBottom));
-
+        System.out.println(Colors.c(Colors.GRAY, "==== Account Details ===="));
+        System.out.println("Email    : " + Colors.c(Colors.YELLOW, getUserEmail()));
+        System.out.println("Device ID: " + Colors.c(Colors.CYAN, getDeviceId()));
+        System.out.println("Status   : " + Colors.c(Colors.GREEN, "● Online"));
+        System.out.println(Colors.c(Colors.GRAY, "========================="));
     }
 
 
