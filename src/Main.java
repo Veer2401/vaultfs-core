@@ -76,6 +76,31 @@ public class Main {
             } else { System.out.println(Colors.c(Colors.RED, "Path is required. Usage: topk <k> <path>")); }
             return true;
         });
+        COMMANDS.put("duplicates", (t, fs) -> { fs.findDuplicates(); return true; });
+        COMMANDS.put("dedupe", (t, fs) -> { fs.removeDuplicates(); return true; });
+        COMMANDS.put("cp", (t, fs) -> {
+            if (t.length < 3) { System.out.println(Colors.c(Colors.RED, "Usage: cp <source> <dest> or cp -r <source> <dest>")); }
+            else if (t.length > 3 && "-r".equals(t[1])) fs.copy(t[2], t[3], true);
+            else fs.copy(t[1], t[2], false);
+            return true;
+        });
+        COMMANDS.put("mv", (t, fs) -> {
+            if (t.length < 3) { System.out.println(Colors.c(Colors.RED, "Usage: mv <source> <dest>")); }
+            else fs.move(t[1], t[2]);
+            return true;
+        });
+        COMMANDS.put("trash", (t, fs) -> {
+            if (t.length < 2) { fs.listTrash(); }
+            else if ("list".equalsIgnoreCase(t[1])) { fs.listTrash(); }
+            else if ("empty".equalsIgnoreCase(t[1])) { fs.emptyTrash(); }
+            else if ("size".equalsIgnoreCase(t[1])) { fs.trashSize(); }
+            else if ("restore".equalsIgnoreCase(t[1])) {
+                if (t.length < 3) System.out.println(Colors.c(Colors.RED, "Usage: trash restore <filename>"));
+                else fs.restoreFromTrashByName(t[2]);
+            }
+            else { System.out.println(Colors.c(Colors.RED, "Usage: trash [list|empty|size|restore <filename>]")); }
+            return true;
+        });
         COMMANDS.put("help",   (t, fs) -> { printHelp(); return true; });
         COMMANDS.put("whoami", (t, fs) -> { AuthManager.whoami(); return true; });
         COMMANDS.put("clear",  (t, fs) -> { clearScreen(); return true; });
@@ -185,6 +210,15 @@ public class Main {
         printHelpRow("ls -l", "Detailed listing");
         printHelpRow("tree <path>", "Print subtree");
         printHelpRow("topk <k> <path>", "Top k in specific path");
+        printHelpRow("duplicates", "Find duplicate files by hash");
+        printHelpRow("dedupe", "Remove duplicate files (keep first)");
+        printHelpRow("cp <src> <dest>", "Copy file");
+        printHelpRow("cp -r <src> <dest>", "Copy directory recursively");
+        printHelpRow("mv <src> <dest>", "Move/rename file or directory");
+        printHelpRow("trash", "List trash/recycle bin");
+        printHelpRow("trash empty", "Empty entire trash");
+        printHelpRow("trash size", "Show trash size");
+        printHelpRow("trash restore <file>", "Restore file to original location");
         printHelpRow("whoami", "Show account details");
         printHelpRow("clear", "Clear terminal");
         printHelpRow("exit", "Logout and exit program");

@@ -183,18 +183,8 @@ public class FileSystem {
             return;
         }
 
-        boolean deleted;
-        if (force) {
-            deleted = diskService.deleteDiskRecursive(targetDir);
-        } else {
-            deleted = targetDir.delete();
-        }
-
-        if (!deleted) {
-            System.out.println(Colors.c(Colors.RED, "Failed to delete directory on disk: " + name));
-            exportState();
-            return;
-        }
+        // Move to trash instead of permanently deleting
+        utils.TrashManager.moveToTrash(node.absolutePath, true);
 
         removeHeapEntriesUnderNode(node);
         tree.removeDirectory(node);
@@ -344,19 +334,14 @@ public class FileSystem {
             return;
         }
 
-        if (!diskFile.delete()) {
-            System.out.println(Colors.c(Colors.RED, "Failed to delete file on disk: " + filename));
-            exportState();
-            return;
-        }
+        // Move to trash instead of permanently deleting
+        utils.TrashManager.moveToTrash(filePath, false);
 
         currentDirectory.files.remove(filename);
         currentDirectory.fileIndex.remove(filename);
         tree.untrackFile(filename, filePath);
         fileBlockIndex.remove(filePath);
         globalHeap.remove(filePath);
-        System.out.println("File '" + Colors.c(Colors.WHITE, filename) + "' "
-            + Colors.c(Colors.GREEN, "deleted successfully") + ".");
         exportState();
     }
 
@@ -951,6 +936,42 @@ public class FileSystem {
         exportState();
     }
 
+    /** Finds and displays all duplicate files by content hash in the entire tree. */
+    public void findDuplicates() {
+        Map<String, List<String>> duplicates = utils.DuplicateDetector.findDuplicates(tree.getRoot());
+        utils.DuplicateDetector.printDuplicates(duplicates);
+        exportState();
+    }
+
+    /** Removes duplicate files, keeping only the first occurrence of each hash. */
+    public void removeDuplicates() {
+        Map<String, List<String>> duplicates = utils.DuplicateDetector.findDuplicates(tree.getRoot());
+        
+        if (duplicates.isEmpty()) {
+            System.out.println(Colors.c(Colors.GREEN, "✓ No duplicate files found!"));
+            exportState();
+            return;
+        }
+        
+        // Show what will be deleted
+        int totalToDelete = 0;
+        for (List<String> group : duplicates.values()) {
+            totalToDelete += group.size() - 1; // All except the first in each group
+        }
+        
+        System.out.println();
+        System.out.println(Colors.c(Colors.YELLOW, "Found " + duplicates.size() + " group(s) with " + totalToDelete + " duplicate file(s)"));
+        System.out.println(Colors.c(Colors.CYAN, "Removing duplicates (keeping the first occurrence of each)..."));
+        System.out.println();
+        
+        // Perform the deletion
+        int deletedCount = utils.DuplicateDetector.removeDuplicates(tree.getRoot());
+        
+        System.out.println(Colors.c(Colors.GREEN, "✓ Successfully removed " + deletedCount + " duplicate file(s)!"));
+        System.out.println();
+        exportState();
+    }
+
     /** Exports the current root, active directory, and global heap state to state.json.
      *  Cloud sync is dispatched asynchronously on a daemon thread with debounce. */
     public void exportState() {
@@ -976,6 +997,73 @@ public class FileSystem {
                     syncPending.set(false);
                 }
             });
+        }
+    }
+
+    /** Copy a file or directory to a new location. */
+    public void copy(String source, String destination, boolean recursive) {
+        String resolvedSource = resolveAbsolutePath(source);
+        String resolvedDest = resolveAbsolutePath(destination);
+        utils.FileOps.copy(resolvedSource, resolvedDest, recursive);
+        exportState();
+    }
+
+    /** Move/rename a file or directory. */
+    public void move(String source, String destination) {
+        String resolvedSource = resolveAbsolutePath(source);
+        String resolvedDest = resolveAbsolutePath(destination);
+        utils.FileOps.move(resolvedSource, resolvedDest);
+        exportState();
+    }
+
+    /** Move file to trash. */
+    public void moveFileToTrash(String filename) {
+        File file = new File(currentDirectory.absolutePath + File.separator + filename);
+        if (!file.exists()) {
+            System.out.println(Colors.c(Colors.RED, "File not found: " + filename));
+            exportState();
+            return;
+        }
+        utils.TrashManager.moveToTrash(file.getAbsolutePath(), file.isDirectory());
+        exportState();
+    }
+
+    /** List items in trash. */
+    public void listTrash() {
+        utils.TrashManager.listTrash();
+        exportState();
+    }
+
+    /** Restore file from trash. */
+    public void restoreFromTrash(String originalPath) {
+        utils.TrashManager.restoreFromTrash(originalPath);
+        exportState();
+    }
+
+    /** Restore file from trash by filename only (searches most recent match). */
+    public void restoreFromTrashByName(String filename) {
+        utils.TrashManager.restoreFromTrashByName(filename);
+        exportState();
+    }
+
+    /** Empty all trash. */
+    public void emptyTrash() {
+        utils.TrashManager.emptyTrash();
+        exportState();
+    }
+
+    /** Show trash size. */
+    public void trashSize() {
+        utils.TrashManager.showTrashSize();
+        exportState();
+    }
+
+    /** Helper: Resolve absolute path from relative or absolute path string. */
+    private String resolveAbsolutePath(String path) {
+        if (path.startsWith("/")) {
+            return path;
+        } else {
+            return currentDirectory.absolutePath + File.separator + path;
         }
     }
 }
